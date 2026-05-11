@@ -1,0 +1,282 @@
+/* ── RESET ─────────────────────────────────────────── */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ── BODY ───────────────────────────────────────────── */
+body {
+  background: #0a0a0f;
+  color: #e8e8f0;
+  font-family: 'Courier New', monospace;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── HEADER ─────────────────────────────────────────── */
+header {
+  width: 100%;
+  padding: 18px 32px;
+  border-bottom: 1px solid #1e1e2e;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  font-size: 13px;
+  letter-spacing: 4px;
+  color: #5af;
+}
+
+/* ── STATUS DOT ─────────────────────────────────────── */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #333;
+  display: inline-block;
+  margin-right: 8px;
+  transition: background 0.3s;
+}
+
+.status-dot.active {
+  background: #4f4;
+  box-shadow: 0 0 6px #4f4;
+}
+
+.status-dot.loading {
+  background: #fa0;
+  box-shadow: 0 0 6px #fa0;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+#status-text {
+  font-size: 12px;
+  color: #666;
+  letter-spacing: 2px;
+}
+
+/* ── MAIN ───────────────────────────────────────────── */
+main {
+  flex: 1;
+  width: 100%;
+  max-width: 900px;
+  padding: 28px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+/* ── CAMERA VIEW ────────────────────────────────────── */
+#liveView {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  border: 1px solid #1e1e2e;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #070710;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#webcam {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ── CAMERA OFF PLACEHOLDER ─────────────────────────── */
+#placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #333;
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+
+.cam-icon {
+  width: 48px;
+  height: 48px;
+  border: 2px solid #222;
+  border-radius: 8px;
+  position: relative;
+}
+
+.cam-icon::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #333;
+}
+
+/* ── BOUNDING BOXES ─────────────────────────────────── */
+.highlighter {
+  position: absolute;
+  border: 2px solid #5af;
+  border-radius: 2px;
+  background: rgba(85, 170, 255, 0.07);
+  pointer-events: none;
+}
+
+.label {
+  position: absolute;
+  background: #5af;
+  color: #000;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Red = object is close/large in frame */
+.warning-box {
+  border-color: #f55 !important;
+  background: rgba(255, 80, 80, 0.1) !important;
+}
+
+.warning-label {
+  background: #f55 !important;
+  color: #fff !important;
+}
+
+/* ── BUTTONS ────────────────────────────────────────── */
+.controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+button {
+  background: transparent;
+  border: 1px solid #2a2a3e;
+  color: #e8e8f0;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: 2px;
+  padding: 10px 24px;
+  cursor: pointer;
+  border-radius: 2px;
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+
+button:hover:not(:disabled) {
+  border-color: #5af;
+  color: #5af;
+}
+
+button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+#startBtn { border-color: #5af; color: #5af; }
+#startBtn:hover:not(:disabled) { background: rgba(85, 170, 255, 0.1); }
+
+#stopBtn { border-color: #f55; color: #f55; }
+#stopBtn:hover:not(:disabled) { background: rgba(255, 80, 80, 0.1); }
+
+/* ── DETECTION LOG ──────────────────────────────────── */
+#log {
+  width: 100%;
+  max-width: 720px;
+  background: #070710;
+  border: 1px solid #1e1e2e;
+  border-radius: 4px;
+  padding: 14px 16px;
+  font-size: 12px;
+  color: #555;
+  min-height: 52px;
+  letter-spacing: 1px;
+  line-height: 1.8;
+}
+
+#log span { color: #5af; }
+#log .warn { color: #f55; }
+
+/* ── VOICE HINT ─────────────────────────────────────── */
+.voice-hint {
+  font-size: 11px;
+  color: #333;
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+.voice-hint b {
+  color: #5af;
+  font-weight: normal;
+}
+
+/* ── LOADING OVERLAY ────────────────────────────────── */
+#loadingOverlay {
+  position: fixed;
+  inset: 0;
+  background: #0a0a0f;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  z-index: 99;
+}
+
+#loadingOverlay h1 {
+  font-size: 13px;
+  letter-spacing: 4px;
+  color: #5af;
+}
+
+.loader-bar {
+  width: 220px;
+  height: 2px;
+  background: #1e1e2e;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.loader-fill {
+  height: 100%;
+  background: #5af;
+  width: 0%;
+  transition: width 0.4s;
+}
+
+#loadMsg {
+  font-size: 11px;
+  color: #444;
+  letter-spacing: 3px;
+}
+
+#loadPercent {
+  font-size: 11px;
+  color: #5af;
+  letter-spacing: 2px;
+}

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Object Detector</title>
+
+  <!-- TensorFlow + COCO-SSD (lite model = ~3MB, loads fast) -->
+  <script src="https://unpkg.com/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+  <script src="https://unpkg.com/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+
+  <!-- Your CSS -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Loading overlay (shown while model downloads) -->
+  <div id="loadingOverlay">
+    <h1>OBJECT DETECTOR</h1>
+    <div class="loader-bar">
+      <div class="loader-fill" id="loaderFill"></div>
+    </div>
+    <div id="loadMsg">DOWNLOADING MODEL...</div>
+    <div id="loadPercent">0%</div>
+  </div>
+
+  <!-- Header -->
+  <header>
+    <div class="logo">Object Detector</div>
+    <div>
+      <span class="status-dot loading" id="statusDot"></span>
+      <span id="status-text">LOADING</span>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main>
+
+    <!-- Camera view -->
+    <div id="liveView">
+      <video id="webcam" autoplay muted playsinline></video>
+      <div id="placeholder">
+        <div class="cam-icon"></div>
+        <span>CAMERA OFF</span>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="controls">
+      <button id="startBtn" disabled>▶ Start Camera</button>
+      <button id="switchBtn" disabled>⇄ Switch Camera</button>
+      <button id="stopBtn" disabled>■ Stop</button>
+    </div>
+
+    <!-- Detection log -->
+    <div id="log">Waiting for model...</div>
+
+    <!-- Voice hint -->
+    <div class="voice-hint">
+      Voice commands: <b>"start"</b> · <b>"stop"</b> · <b>"switch"</b>
+    </div>
+
+  </main>
+
+  <!-- Your JS -->
+  <script src="script.js"></script>
+
+</body>
+</html>
