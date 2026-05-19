@@ -19,16 +19,16 @@ const loadPercent = document.getElementById('loadPercent');
 
 
 // ── MODELS ───────────────────────────────────────────────────
-let cocoModel;        // object detection model
-let mobileNetModel;   // image classification model
+let cocoModel;
+let mobileNetModel;
 
 
 // ── CAMERA / STATE ──────────────────────────────────────────
 let stream;
-let facingMode   = 'environment';
+let facingMode = 'environment';
 
 let isPredicting = false;
-let animationId  = null;
+let animationId = null;
 
 const children = [];
 
@@ -40,8 +40,15 @@ const WARNING_THRESHOLD = 40000;
 
 const REPEAT_INTERVAL = 3000;
 
+const REQUIRED_STABILITY = 3;
+
+
+// ── SPEECH MEMORY ───────────────────────────────────────────
 let lastSpoken = '';
 let lastSpokenTime = 0;
+
+let stablePrediction = '';
+let stableCount = 0;
 
 
 // ── FAKE LOADING BAR ────────────────────────────────────────
@@ -53,7 +60,8 @@ const fakeTimer = setInterval(() => {
 
   if (fakeProgress > 88) fakeProgress = 88;
 
-  loaderFill.style.width = fakeProgress + '%';
+  loaderFill.style.width =
+    fakeProgress + '%';
 
   loadPercent.textContent =
     Math.round(fakeProgress) + '%';
@@ -86,7 +94,8 @@ function speak(text) {
 
   if (speechSynthesis.speaking) return;
 
-  const u = new SpeechSynthesisUtterance(text);
+  const u =
+    new SpeechSynthesisUtterance(text);
 
   u.rate = 1.1;
 
@@ -114,7 +123,9 @@ if (SR) {
   recognition.onend = () => {
 
     try {
+
       recognition.start();
+
     } catch(e) {}
   };
 
@@ -134,6 +145,7 @@ if (SR) {
         .toLowerCase()
         .trim();
 
+    // START
     if (
       cmd.includes('start') ||
       cmd.includes('turn on')
@@ -144,6 +156,7 @@ if (SR) {
       speak('Camera on');
     }
 
+    // STOP
     else if (
       cmd.includes('stop') ||
       cmd.includes('turn off')
@@ -154,6 +167,7 @@ if (SR) {
       speak('Camera off');
     }
 
+    // SWITCH
     else if (
       cmd.includes('switch')
     ) {
@@ -166,7 +180,7 @@ if (SR) {
 }
 
 
-// ── LOAD BOTH MODELS ────────────────────────────────────────
+// ── LOAD MODELS ─────────────────────────────────────────────
 Promise.all([
 
   cocoSsd.load({
@@ -175,9 +189,11 @@ Promise.all([
 
   mobilenet.load()
 
-]).then(([loadedCoco, loadedMobileNet]) => {
+])
 
-  cocoModel      = loadedCoco;
+.then(([loadedCoco, loadedMobileNet]) => {
+
+  cocoModel = loadedCoco;
 
   mobileNetModel = loadedMobileNet;
 
@@ -193,29 +209,33 @@ Promise.all([
 
     overlay.style.display = 'none';
 
-    startBtn.disabled  = false;
+    startBtn.disabled = false;
 
     switchBtn.disabled = false;
 
     setStatus('', 'READY');
 
-    log('Hybrid AI system loaded.');
+    log('Hybrid AI loaded successfully.');
 
     if (recognition) {
 
       try {
+
         recognition.start();
+
       } catch(e) {}
     }
 
   }, 400);
 
-}).catch(err => {
+})
+
+.catch(err => {
 
   clearInterval(fakeTimer);
 
   loadMsg.textContent =
-    'FAILED — check internet';
+    'FAILED — Check internet';
 
   loadPercent.textContent = '';
 
@@ -258,7 +278,7 @@ function enableCam() {
           'DETECTING'
         );
 
-        log('Detection started.');
+        log('Detection running.');
 
         predictLoop();
       };
@@ -287,7 +307,6 @@ async function predictLoop() {
     const predictions =
       await cocoModel.detect(video);
 
-    // stop check
     if (!isPredicting) return;
 
 
@@ -365,12 +384,15 @@ async function predictLoop() {
     });
 
 
-    // ── IF DETECTED OBJECTS ─────────────────────────────
+    // ── COCO DETECTION SUCCESS ──────────────────────────
     if (seen.length > 0) {
 
       log(
         'Detected: ' + seen.join(', ')
       );
+
+      stablePrediction = '';
+      stableCount = 0;
 
       const now = Date.now();
 
@@ -378,7 +400,8 @@ async function predictLoop() {
         proximityMsg &&
         (
           proximityMsg !== lastSpoken ||
-          now - lastSpokenTime > REPEAT_INTERVAL
+          now - lastSpokenTime >
+          REPEAT_INTERVAL
         )
       ) {
 
@@ -391,7 +414,7 @@ async function predictLoop() {
     }
 
 
-    // ── FALLBACK TO MOBILENET CLASSIFICATION ───────────
+    // ── FALLBACK TO MOBILENET ───────────────────────────
     else {
 
       log('Trying classification...');
@@ -404,8 +427,13 @@ async function predictLoop() {
         const best =
           classifications[0];
 
+        // original full label
         const objectName =
           best.className;
+
+        // clean label
+        const cleanName =
+          objectName.split(',')[0];
 
         const confidence =
           Math.round(
@@ -413,30 +441,48 @@ async function predictLoop() {
           );
 
         log(
-          `Classification: ${objectName} (${confidence}%)`
+          `Classification: ${cleanName} (${confidence}%)`
         );
 
-        const now = Date.now();
 
+        // ── STABILITY FILTER ─────────────────────────
         if (
-          (
-            objectName !== lastSpoken
-          ) ||
-
-          (
-            now - lastSpokenTime >
-            REPEAT_INTERVAL
-          )
+          cleanName === stablePrediction
         ) {
 
-          speak(objectName);
+          stableCount++;
 
-          lastSpoken = objectName;
+        } else {
 
-          lastSpokenTime = now;
+          stablePrediction = cleanName;
+
+          stableCount = 1;
         }
-      }
-      else {
+
+
+        // ── SPEAK ONLY IF STABLE ────────────────────
+        if (
+          stableCount >= REQUIRED_STABILITY
+        ) {
+
+          const now = Date.now();
+
+          if (
+            cleanName !== lastSpoken ||
+
+            now - lastSpokenTime >
+            REPEAT_INTERVAL
+          ) {
+
+            speak(cleanName);
+
+            lastSpoken = cleanName;
+
+            lastSpokenTime = now;
+          }
+        }
+
+      } else {
 
         log('Scanning...');
       }
@@ -498,7 +544,9 @@ async function switchCamera() {
 
     log('Camera switched.');
 
-  } catch(err) {
+  }
+
+  catch(err) {
 
     log('Switch failed.', 'warn');
 
@@ -546,9 +594,13 @@ function stopCam() {
 
   startBtn.disabled = false;
 
-  stopBtn.disabled  = true;
+  stopBtn.disabled = true;
 
   lastSpoken = '';
+
+  stablePrediction = '';
+
+  stableCount = 0;
 
   setStatus('', 'READY');
 
