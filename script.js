@@ -1,7 +1,4 @@
-// ─────────────────────────────────────────────────────────────
-// HTML ELEMENTS
-// ─────────────────────────────────────────────────────────────
-
+// ── GET HTML ELEMENTS ────────────────────────────────────────
 const video       = document.getElementById('webcam');
 const liveView    = document.getElementById('liveView');
 const placeholder = document.getElementById('placeholder');
@@ -21,58 +18,42 @@ const loadMsg     = document.getElementById('loadMsg');
 const loadPercent = document.getElementById('loadPercent');
 
 
-// ─────────────────────────────────────────────────────────────
-// STATE VARIABLES
-// ─────────────────────────────────────────────────────────────
+// ── MODELS ───────────────────────────────────────────────────
+let cocoModel;        // object detection model
+let mobileNetModel;   // image classification model
 
-let model;
 
+// ── CAMERA / STATE ──────────────────────────────────────────
 let stream;
-
-let facingMode = 'environment';
+let facingMode   = 'environment';
 
 let isPredicting = false;
-
-let animationId = null;
+let animationId  = null;
 
 const children = [];
 
 
-// ─────────────────────────────────────────────────────────────
-// SETTINGS
-// ─────────────────────────────────────────────────────────────
-
-const DETECTION_INTERVAL = 500;
+// ── SETTINGS ────────────────────────────────────────────────
+const DETECTION_INTERVAL = 300;
 
 const WARNING_THRESHOLD = 40000;
 
 const REPEAT_INTERVAL = 3000;
 
-const API_INTERVAL = 3000;
-
-let lastApiCall = 0;
-
 let lastSpoken = '';
-
 let lastSpokenTime = 0;
 
 
-// ─────────────────────────────────────────────────────────────
-// FAKE LOADING BAR
-// ─────────────────────────────────────────────────────────────
-
+// ── FAKE LOADING BAR ────────────────────────────────────────
 let fakeProgress = 0;
 
 const fakeTimer = setInterval(() => {
 
   fakeProgress += Math.random() * 6;
 
-  if (fakeProgress > 88) {
-    fakeProgress = 88;
-  }
+  if (fakeProgress > 88) fakeProgress = 88;
 
-  loaderFill.style.width =
-    fakeProgress + '%';
+  loaderFill.style.width = fakeProgress + '%';
 
   loadPercent.textContent =
     Math.round(fakeProgress) + '%';
@@ -80,10 +61,7 @@ const fakeTimer = setInterval(() => {
 }, 400);
 
 
-// ─────────────────────────────────────────────────────────────
-// STATUS HELPER
-// ─────────────────────────────────────────────────────────────
-
+// ── STATUS ──────────────────────────────────────────────────
 function setStatus(cls, text) {
 
   statusDot.className =
@@ -93,10 +71,7 @@ function setStatus(cls, text) {
 }
 
 
-// ─────────────────────────────────────────────────────────────
-// LOG HELPER
-// ─────────────────────────────────────────────────────────────
-
+// ── LOG ─────────────────────────────────────────────────────
 function log(msg, type) {
 
   logEl.innerHTML =
@@ -106,42 +81,20 @@ function log(msg, type) {
 }
 
 
-// ─────────────────────────────────────────────────────────────
-// SPEAK
-// ─────────────────────────────────────────────────────────────
-
+// ── SPEAK ───────────────────────────────────────────────────
 function speak(text) {
 
-  const now = Date.now();
+  if (speechSynthesis.speaking) return;
 
-  if (
-    text === lastSpoken &&
-    now - lastSpokenTime < REPEAT_INTERVAL
-  ) {
-    return;
-  }
+  const u = new SpeechSynthesisUtterance(text);
 
-  if (speechSynthesis.speaking) {
-    speechSynthesis.cancel();
-  }
-
-  const u =
-    new SpeechSynthesisUtterance(text);
-
-  u.rate = 1.0;
+  u.rate = 1.1;
 
   speechSynthesis.speak(u);
-
-  lastSpoken = text;
-
-  lastSpokenTime = now;
 }
 
 
-// ─────────────────────────────────────────────────────────────
-// VOICE RECOGNITION
-// ─────────────────────────────────────────────────────────────
-
+// ── VOICE RECOGNITION ───────────────────────────────────────
 const SR =
   window.SpeechRecognition ||
   window.webkitSpeechRecognition;
@@ -162,8 +115,7 @@ if (SR) {
 
     try {
       recognition.start();
-    }
-    catch(e){}
+    } catch(e) {}
   };
 
   recognition.onerror = e => {
@@ -178,11 +130,9 @@ if (SR) {
 
     const cmd =
       e.results[e.results.length - 1][0]
-      .transcript
-      .toLowerCase()
-      .trim();
-
-    console.log('VOICE:', cmd);
+        .transcript
+        .toLowerCase()
+        .trim();
 
     if (
       cmd.includes('start') ||
@@ -216,17 +166,20 @@ if (SR) {
 }
 
 
-// ─────────────────────────────────────────────────────────────
-// LOAD MODEL
-// ─────────────────────────────────────────────────────────────
+// ── LOAD BOTH MODELS ────────────────────────────────────────
+Promise.all([
 
-cocoSsd.load({
-  base: 'lite_mobilenet_v2'
-})
+  cocoSsd.load({
+    base: 'lite_mobilenet_v2'
+  }),
 
-.then(loaded => {
+  mobilenet.load()
 
-  model = loaded;
+]).then(([loadedCoco, loadedMobileNet]) => {
+
+  cocoModel      = loadedCoco;
+
+  mobileNetModel = loadedMobileNet;
 
   clearInterval(fakeTimer);
 
@@ -240,33 +193,29 @@ cocoSsd.load({
 
     overlay.style.display = 'none';
 
-    startBtn.disabled = false;
+    startBtn.disabled  = false;
 
     switchBtn.disabled = false;
 
     setStatus('', 'READY');
 
-    log('Model loaded.');
+    log('Hybrid AI system loaded.');
 
     if (recognition) {
 
       try {
-
         recognition.start();
-
-      } catch(e){}
+      } catch(e) {}
     }
 
   }, 400);
 
-})
-
-.catch(err => {
+}).catch(err => {
 
   clearInterval(fakeTimer);
 
   loadMsg.textContent =
-    'FAILED';
+    'FAILED — check internet';
 
   loadPercent.textContent = '';
 
@@ -274,19 +223,18 @@ cocoSsd.load({
 });
 
 
-// ─────────────────────────────────────────────────────────────
-// ENABLE CAMERA
-// ─────────────────────────────────────────────────────────────
-
+// ── ENABLE CAMERA ───────────────────────────────────────────
 function enableCam() {
 
-  if (!model || isPredicting) return;
+  if (
+    !cocoModel ||
+    !mobileNetModel ||
+    isPredicting
+  ) return;
 
   navigator.mediaDevices
     .getUserMedia({
-      video: {
-        facingMode
-      }
+      video: { facingMode }
     })
 
     .then(s => {
@@ -310,7 +258,7 @@ function enableCam() {
           'DETECTING'
         );
 
-        log('Detection running.');
+        log('Detection started.');
 
         predictLoop();
       };
@@ -318,30 +266,32 @@ function enableCam() {
 
     .catch(err => {
 
-      console.error(err);
-
       log(
-        'Camera error',
+        'Camera error: ' + err.message,
         'warn'
       );
+
+      console.error(err);
     });
 }
 
 
-// ─────────────────────────────────────────────────────────────
-// PREDICT LOOP
-// ─────────────────────────────────────────────────────────────
-
+// ── MAIN PREDICTION LOOP ────────────────────────────────────
 async function predictLoop() {
 
   if (!isPredicting) return;
 
   try {
 
-    // =========================================================
-    // REMOVE OLD BOXES
-    // =========================================================
+    // ── OBJECT DETECTION ─────────────────────────────────
+    const predictions =
+      await cocoModel.detect(video);
 
+    // stop check
+    if (!isPredicting) return;
+
+
+    // ── REMOVE OLD BOXES ────────────────────────────────
     children.forEach(c => {
 
       if (liveView.contains(c)) {
@@ -353,25 +303,22 @@ async function predictLoop() {
     children.length = 0;
 
 
-    // =========================================================
-    // LOCAL COCO SSD DETECTION
-    // =========================================================
-
-    const predictions =
-      await model.detect(video);
+    let proximityMsg = '';
 
     const seen = [];
 
+
+    // ── DRAW DETECTIONS ─────────────────────────────────
     predictions.forEach(pred => {
 
       if (pred.score < 0.60) return;
 
-      const [x, y, w, h] =
-        pred.bbox;
+      const [x, y, w, h] = pred.bbox;
 
       const isNear =
         (w * h) > WARNING_THRESHOLD;
 
+      // BOX
       const box =
         document.createElement('div');
 
@@ -386,6 +333,7 @@ async function predictLoop() {
         height:${h}px;
       `;
 
+      // LABEL
       const lbl =
         document.createElement('div');
 
@@ -399,8 +347,7 @@ async function predictLoop() {
       `;
 
       lbl.textContent =
-        `${pred.class}
-        ${Math.round(pred.score * 100)}%`;
+        `${pred.class} ${Math.round(pred.score * 100)}%`;
 
       liveView.appendChild(box);
 
@@ -410,198 +357,93 @@ async function predictLoop() {
 
       seen.push(pred.class);
 
-      // SPEAK FOR NEAR OBJECTS
-
       if (isNear) {
 
-        speak(
-          `${pred.class} is near`
-        );
+        proximityMsg =
+          `Warning, ${pred.class} is near`;
       }
     });
 
 
-    // =========================================================
-    // ROBOFLOW API CALL
-    // =========================================================
+    // ── IF DETECTED OBJECTS ─────────────────────────────
+    if (seen.length > 0) {
 
-    const nowTime = Date.now();
+      log(
+        'Detected: ' + seen.join(', ')
+      );
 
-    if (
-      nowTime - lastApiCall >
-      API_INTERVAL
-    ) {
+      const now = Date.now();
 
-      lastApiCall = nowTime;
-
-      try {
-
-        const canvas =
-          document.createElement('canvas');
-
-        canvas.width =
-          video.videoWidth;
-
-        canvas.height =
-          video.videoHeight;
-
-        const ctx =
-          canvas.getContext('2d');
-
-        ctx.drawImage(
-          video,
-          0,
-          0
-        );
-
-        const imageData =
-          canvas.toDataURL('image/jpeg');
-
-
-        fetch(
-          'https://serverless.roboflow.com/rakshithsiri23-gmail-com/workflows/general-segmentation-api',
-          {
-
-            method: 'POST',
-
-            headers: {
-              'Content-Type':
-                'application/json'
-            },
-
-            body: JSON.stringify({
-
-              api_key:
-                'VC8KGjxJ9Ezt5HVVzXaS',
-
-              inputs: {
-
-                image: {
-
-                  type: 'base64',
-
-                  value: imageData
-                },
-
-                classes:
-                  'bottle, chair, table, laptop, phone, pen, fan, person, charger, penstand'
-              }
-            })
-          }
+      if (
+        proximityMsg &&
+        (
+          proximityMsg !== lastSpoken ||
+          now - lastSpokenTime > REPEAT_INTERVAL
         )
+      ) {
 
-        .then(res => res.json())
+        speak(proximityMsg);
 
-        .then(result => {
+        lastSpoken = proximityMsg;
 
-          console.log(
-            'ROBOFLOW:',
-            result
-          );
-
-          if (
-            result.outputs &&
-            result.outputs.length > 0
-          ) {
-
-            result.outputs.forEach(item => {
-
-              if (!item.predictions) return;
-
-              item.predictions.forEach(pred => {
-
-                const x =
-                  pred.x -
-                  pred.width / 2;
-
-                const y =
-                  pred.y -
-                  pred.height / 2;
-
-                const box =
-                  document.createElement('div');
-
-                box.className =
-                  'highlighter';
-
-                box.style.cssText = `
-                  left:${x}px;
-                  top:${y}px;
-                  width:${pred.width}px;
-                  height:${pred.height}px;
-                  border:3px solid cyan;
-                `;
-
-                const lbl =
-                  document.createElement('div');
-
-                lbl.className =
-                  'label';
-
-                lbl.style.cssText = `
-                  left:${x}px;
-                  top:${Math.max(0, y - 22)}px;
-                  background:cyan;
-                  color:black;
-                `;
-
-                lbl.textContent =
-                  `${pred.class}
-                  ${Math.round(pred.confidence * 100)}%`;
-
-                liveView.appendChild(box);
-
-                liveView.appendChild(lbl);
-
-                children.push(box, lbl);
-
-                // SPEAK CUSTOM OBJECTS
-
-                speak(
-                  `${pred.class} detected`
-                );
-              });
-            });
-          }
-        })
-
-        .catch(err => {
-
-          console.error(
-            'Roboflow error:',
-            err
-          );
-        });
-
-      } catch(err) {
-
-        console.error(err);
+        lastSpokenTime = now;
       }
     }
 
 
-    // =========================================================
-    // LOG
-    // =========================================================
-
-    if (seen.length) {
-
-      log(
-        'Detected: ' +
-        [...new Set(seen)].join(', ')
-      );
-    }
-
+    // ── FALLBACK TO MOBILENET CLASSIFICATION ───────────
     else {
 
-      log('Scanning...');
+      log('Trying classification...');
+
+      const classifications =
+        await mobileNetModel.classify(video);
+
+      if (classifications.length > 0) {
+
+        const best =
+          classifications[0];
+
+        const objectName =
+          best.className;
+
+        const confidence =
+          Math.round(
+            best.probability * 100
+          );
+
+        log(
+          `Classification: ${objectName} (${confidence}%)`
+        );
+
+        const now = Date.now();
+
+        if (
+          (
+            objectName !== lastSpoken
+          ) ||
+
+          (
+            now - lastSpokenTime >
+            REPEAT_INTERVAL
+          )
+        ) {
+
+          speak(objectName);
+
+          lastSpoken = objectName;
+
+          lastSpokenTime = now;
+        }
+      }
+      else {
+
+        log('Scanning...');
+      }
     }
 
 
-    // =========================================================
-    // LOOP AGAIN
-    // =========================================================
-
+    // ── LOOP AGAIN ─────────────────────────────────────
     animationId =
       setTimeout(
         predictLoop,
@@ -613,7 +455,7 @@ async function predictLoop() {
   catch(err) {
 
     console.error(
-      'Detection error:',
+      'Prediction error:',
       err
     );
 
@@ -629,15 +471,13 @@ async function predictLoop() {
 }
 
 
-// ─────────────────────────────────────────────────────────────
-// SWITCH CAMERA
-// ─────────────────────────────────────────────────────────────
-
+// ── SWITCH CAMERA ───────────────────────────────────────────
 async function switchCamera() {
 
   if (stream) {
 
-    stream.getTracks()
+    stream
+      .getTracks()
       .forEach(t => t.stop());
   }
 
@@ -650,34 +490,24 @@ async function switchCamera() {
 
     stream =
       await navigator.mediaDevices
-      .getUserMedia({
-        video: {
-          facingMode
-        }
-      });
+        .getUserMedia({
+          video: { facingMode }
+        });
 
     video.srcObject = stream;
 
     log('Camera switched.');
 
-  }
+  } catch(err) {
 
-  catch(err) {
+    log('Switch failed.', 'warn');
 
     console.error(err);
-
-    log(
-      'Switch failed',
-      'warn'
-    );
   }
 }
 
 
-// ─────────────────────────────────────────────────────────────
-// STOP CAMERA
-// ─────────────────────────────────────────────────────────────
-
+// ── STOP CAMERA ─────────────────────────────────────────────
 function stopCam() {
 
   isPredicting = false;
@@ -691,7 +521,8 @@ function stopCam() {
 
   if (stream) {
 
-    stream.getTracks()
+    stream
+      .getTracks()
       .forEach(t => t.stop());
 
     video.srcObject = null;
@@ -711,12 +542,13 @@ function stopCam() {
 
   children.length = 0;
 
-  placeholder.style.display =
-    'flex';
+  placeholder.style.display = 'flex';
 
   startBtn.disabled = false;
 
-  stopBtn.disabled = true;
+  stopBtn.disabled  = true;
+
+  lastSpoken = '';
 
   setStatus('', 'READY');
 
@@ -724,10 +556,7 @@ function stopCam() {
 }
 
 
-// ─────────────────────────────────────────────────────────────
-// BUTTON EVENTS
-// ─────────────────────────────────────────────────────────────
-
+// ── BUTTON EVENTS ───────────────────────────────────────────
 startBtn.addEventListener(
   'click',
   enableCam
