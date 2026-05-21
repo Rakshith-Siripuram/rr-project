@@ -1,282 +1,330 @@
-/* ── RESET ─────────────────────────────────────────── */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* ── GENERAL ───────────────────────────────────────── */
 
-/* ── BODY ───────────────────────────────────────────── */
 body {
-  background: #0a0a0f;
-  color: #e8e8f0;
-  font-family: 'Courier New', monospace;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+
+  margin: 0;
+
+  background: #0f172a;
+
+  color: white;
+
+  font-family: Arial, sans-serif;
 }
 
-/* ── HEADER ─────────────────────────────────────────── */
+
 header {
-  width: 100%;
-  padding: 18px 32px;
-  border-bottom: 1px solid #1e1e2e;
+
   display: flex;
-  align-items: center;
+
   justify-content: space-between;
+
+  align-items: center;
+
+  padding: 16px 24px;
+
+  background: #111827;
+
+  border-bottom: 1px solid #1f2937;
 }
+
 
 .logo {
-  font-size: 13px;
-  letter-spacing: 4px;
-  color: #5af;
+
+  font-size: 24px;
+
+  font-weight: bold;
+
+  color: #00ffcc;
 }
 
-/* ── STATUS DOT ─────────────────────────────────────── */
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #333;
-  display: inline-block;
-  margin-right: 8px;
-  transition: background 0.3s;
-}
 
-.status-dot.active {
-  background: #4f4;
-  box-shadow: 0 0 6px #4f4;
-}
-
-.status-dot.loading {
-  background: #fa0;
-  box-shadow: 0 0 6px #fa0;
-  animation: pulse 1s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
-}
-
-#status-text {
-  font-size: 12px;
-  color: #666;
-  letter-spacing: 2px;
-}
-
-/* ── MAIN ───────────────────────────────────────────── */
 main {
-  flex: 1;
-  width: 100%;
-  max-width: 900px;
-  padding: 28px 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
+
+  padding: 20px;
 }
 
-/* ── CAMERA VIEW ────────────────────────────────────── */
+
+/* ── LIVE VIEW ─────────────────────────────────────── */
+
 #liveView {
+
   position: relative;
-  width: 100%;
-  max-width: 720px;
-  border: 1px solid #1e1e2e;
-  border-radius: 4px;
+
+  width: 900px;
+
+  max-width: 100%;
+
+  margin: auto;
+
   overflow: hidden;
-  background: #070710;
-  aspect-ratio: 16 / 9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+
+  border-radius: 16px;
+
+  border: 2px solid #00ffcc;
+
+  background: black;
 }
+
 
 #webcam {
+
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+
   display: block;
 }
 
-/* ── CAMERA OFF PLACEHOLDER ─────────────────────────── */
+
+/* ── PLACEHOLDER ───────────────────────────────────── */
+
 #placeholder {
+
   position: absolute;
+
   inset: 0;
+
   display: flex;
-  flex-direction: column;
-  align-items: center;
+
   justify-content: center;
-  gap: 12px;
-  color: #333;
-  font-size: 12px;
-  letter-spacing: 2px;
+
+  align-items: center;
+
+  flex-direction: column;
+
+  background: rgba(0,0,0,0.7);
+
+  font-size: 24px;
+
+  color: #ccc;
 }
 
-.cam-icon {
-  width: 48px;
-  height: 48px;
-  border: 2px solid #222;
-  border-radius: 8px;
-  position: relative;
-}
 
-.cam-icon::before {
-  content: '';
+/* ── MOBILENET LABEL ───────────────────────────────── */
+
+#mobileNetLabel {
+
   position: absolute;
-  top: 50%;
+
+  bottom: 20px;
+
   left: 50%;
-  transform: translate(-50%, -50%);
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid #333;
+
+  transform: translateX(-50%);
+
+  background: rgba(0,0,0,0.75);
+
+  color: #00ffcc;
+
+  padding: 12px 24px;
+
+  border-radius: 12px;
+
+  font-size: 30px;
+
+  font-weight: bold;
+
+  text-transform: uppercase;
+
+  letter-spacing: 2px;
+
+  border: 2px solid #00ffcc;
+
+  box-shadow: 0 0 20px #00ffcc;
+
+  z-index: 999;
+
+  display: none;
 }
 
-/* ── BOUNDING BOXES ─────────────────────────────────── */
+
+/* ── DETECTION BOX ─────────────────────────────────── */
+
 .highlighter {
+
   position: absolute;
-  border: 2px solid #5af;
-  border-radius: 2px;
-  background: rgba(85, 170, 255, 0.07);
-  pointer-events: none;
+
+  border: 3px solid #00ff00;
+
+  z-index: 2;
 }
+
+
+.warning-box {
+
+  border-color: red;
+}
+
+
+/* ── LABEL ─────────────────────────────────────────── */
 
 .label {
+
   position: absolute;
-  background: #5af;
-  color: #000;
-  font-size: 11px;
+
+  background: #00ff00;
+
+  color: black;
+
+  padding: 4px 8px;
+
+  font-size: 14px;
+
   font-weight: bold;
-  letter-spacing: 1px;
-  padding: 2px 6px;
-  border-radius: 2px;
-  pointer-events: none;
-  white-space: nowrap;
+
+  border-radius: 4px;
+
+  z-index: 3;
 }
 
-/* Red = object is close/large in frame */
-.warning-box {
-  border-color: #f55 !important;
-  background: rgba(255, 80, 80, 0.1) !important;
-}
 
 .warning-label {
-  background: #f55 !important;
-  color: #fff !important;
+
+  background: red;
+
+  color: white;
 }
 
-/* ── BUTTONS ────────────────────────────────────────── */
+
+/* ── CONTROLS ──────────────────────────────────────── */
+
 .controls {
+
+  margin-top: 20px;
+
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+
   justify-content: center;
+
+  gap: 16px;
 }
+
 
 button {
-  background: transparent;
-  border: 1px solid #2a2a3e;
-  color: #e8e8f0;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  letter-spacing: 2px;
-  padding: 10px 24px;
+
+  padding: 12px 18px;
+
+  border: none;
+
+  border-radius: 8px;
+
+  background: #00ffcc;
+
+  color: black;
+
+  font-weight: bold;
+
   cursor: pointer;
-  border-radius: 2px;
-  text-transform: uppercase;
-  transition: all 0.2s;
+
+  font-size: 16px;
 }
 
-button:hover:not(:disabled) {
-  border-color: #5af;
-  color: #5af;
-}
 
 button:disabled {
-  opacity: 0.3;
+
+  opacity: 0.5;
+
   cursor: not-allowed;
 }
 
-#startBtn { border-color: #5af; color: #5af; }
-#startBtn:hover:not(:disabled) { background: rgba(85, 170, 255, 0.1); }
 
-#stopBtn { border-color: #f55; color: #f55; }
-#stopBtn:hover:not(:disabled) { background: rgba(255, 80, 80, 0.1); }
+/* ── STATUS ────────────────────────────────────────── */
 
-/* ── DETECTION LOG ──────────────────────────────────── */
+.status-dot {
+
+  display: inline-block;
+
+  width: 12px;
+
+  height: 12px;
+
+  border-radius: 50%;
+
+  background: gray;
+}
+
+
+.status-dot.active {
+
+  background: lime;
+}
+
+
+.status-dot.loading {
+
+  background: orange;
+}
+
+
+/* ── LOG ───────────────────────────────────────────── */
+
 #log {
-  width: 100%;
-  max-width: 720px;
-  background: #070710;
-  border: 1px solid #1e1e2e;
-  border-radius: 4px;
-  padding: 14px 16px;
-  font-size: 12px;
-  color: #555;
-  min-height: 52px;
-  letter-spacing: 1px;
-  line-height: 1.8;
+
+  margin-top: 20px;
+
+  padding: 12px;
+
+  background: #111827;
+
+  border-radius: 8px;
+
+  font-size: 16px;
 }
 
-#log span { color: #5af; }
-#log .warn { color: #f55; }
 
-/* ── VOICE HINT ─────────────────────────────────────── */
-.voice-hint {
-  font-size: 11px;
-  color: #333;
-  letter-spacing: 2px;
-  text-align: center;
-}
+/* ── LOADING SCREEN ────────────────────────────────── */
 
-.voice-hint b {
-  color: #5af;
-  font-weight: normal;
-}
-
-/* ── LOADING OVERLAY ────────────────────────────────── */
 #loadingOverlay {
+
   position: fixed;
+
   inset: 0;
-  background: #0a0a0f;
+
+  background: #020617;
+
   display: flex;
+
   flex-direction: column;
-  align-items: center;
+
   justify-content: center;
-  gap: 20px;
-  z-index: 99;
+
+  align-items: center;
+
+  z-index: 9999;
 }
 
-#loadingOverlay h1 {
-  font-size: 13px;
-  letter-spacing: 4px;
-  color: #5af;
-}
 
 .loader-bar {
-  width: 220px;
-  height: 2px;
-  background: #1e1e2e;
-  border-radius: 2px;
+
+  width: 300px;
+
+  height: 20px;
+
+  background: #1e293b;
+
+  border-radius: 10px;
+
   overflow: hidden;
+
+  margin-top: 20px;
 }
+
 
 .loader-fill {
-  height: 100%;
-  background: #5af;
+
   width: 0%;
-  transition: width 0.4s;
+
+  height: 100%;
+
+  background: #00ffcc;
 }
 
-#loadMsg {
-  font-size: 11px;
-  color: #444;
-  letter-spacing: 3px;
-}
 
-#loadPercent {
-  font-size: 11px;
-  color: #5af;
-  letter-spacing: 2px;
+/* ── VOICE HINT ────────────────────────────────────── */
+
+.voice-hint {
+
+  margin-top: 20px;
+
+  text-align: center;
+
+  color: #94a3b8;
 }
