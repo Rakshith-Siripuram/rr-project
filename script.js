@@ -1,4 +1,9 @@
-// ── GET HTML ELEMENTS ────────────────────────────────────────
+// ── TEACHABLE MACHINE URL ───────────────────────────────
+const TM_URL =
+  "https://teachablemachine.withgoogle.com/models/b9lFDElzn/";
+
+
+// ── GET HTML ELEMENTS ─────────────────────────────────────
 const video       = document.getElementById('webcam');
 const liveView    = document.getElementById('liveView');
 const placeholder = document.getElementById('placeholder');
@@ -18,12 +23,13 @@ const loadMsg     = document.getElementById('loadMsg');
 const loadPercent = document.getElementById('loadPercent');
 
 
-// ── MODELS ───────────────────────────────────────────────────
+// ── MODELS ───────────────────────────────────────────────
 let cocoModel;
 let mobileNetModel;
+let tmModel;
 
 
-// ── CAMERA / STATE ──────────────────────────────────────────
+// ── CAMERA / STATE ───────────────────────────────────────
 let stream;
 let facingMode = 'environment';
 
@@ -33,7 +39,7 @@ let animationId = null;
 const children = [];
 
 
-// ── SETTINGS ────────────────────────────────────────────────
+// ── SETTINGS ─────────────────────────────────────────────
 const DETECTION_INTERVAL = 300;
 
 const WARNING_THRESHOLD = 40000;
@@ -43,7 +49,7 @@ const REPEAT_INTERVAL = 3000;
 const REQUIRED_STABILITY = 3;
 
 
-// ── SPEECH MEMORY ───────────────────────────────────────────
+// ── SPEECH MEMORY ────────────────────────────────────────
 let lastSpoken = '';
 let lastSpokenTime = 0;
 
@@ -51,7 +57,7 @@ let stablePrediction = '';
 let stableCount = 0;
 
 
-// ── FAKE LOADING BAR ────────────────────────────────────────
+// ── FAKE LOADING BAR ─────────────────────────────────────
 let fakeProgress = 0;
 
 const fakeTimer = setInterval(() => {
@@ -69,7 +75,7 @@ const fakeTimer = setInterval(() => {
 }, 400);
 
 
-// ── STATUS ──────────────────────────────────────────────────
+// ── STATUS ───────────────────────────────────────────────
 function setStatus(cls, text) {
 
   statusDot.className =
@@ -79,7 +85,7 @@ function setStatus(cls, text) {
 }
 
 
-// ── LOG ─────────────────────────────────────────────────────
+// ── LOG ──────────────────────────────────────────────────
 function log(msg, type) {
 
   logEl.innerHTML =
@@ -89,7 +95,7 @@ function log(msg, type) {
 }
 
 
-// ── SPEAK ───────────────────────────────────────────────────
+// ── SPEAK ────────────────────────────────────────────────
 function speak(text) {
 
   if (speechSynthesis.speaking) return;
@@ -103,99 +109,29 @@ function speak(text) {
 }
 
 
-// ── VOICE RECOGNITION ───────────────────────────────────────
-const SR =
-  window.SpeechRecognition ||
-  window.webkitSpeechRecognition;
-
-let recognition;
-
-if (SR) {
-
-  recognition = new SR();
-
-  recognition.continuous = true;
-
-  recognition.interimResults = false;
-
-  recognition.lang = 'en-US';
-
-  recognition.onend = () => {
-
-    try {
-
-      recognition.start();
-
-    } catch(e) {}
-  };
-
-  recognition.onerror = e => {
-
-    console.warn(
-      'Speech recognition error:',
-      e.error
-    );
-  };
-
-  recognition.onresult = e => {
-
-    const cmd =
-      e.results[e.results.length - 1][0]
-        .transcript
-        .toLowerCase()
-        .trim();
-
-    // START
-    if (
-      cmd.includes('start') ||
-      cmd.includes('turn on')
-    ) {
-
-      enableCam();
-
-      speak('Camera on');
-    }
-
-    // STOP
-    else if (
-      cmd.includes('stop') ||
-      cmd.includes('turn off')
-    ) {
-
-      stopCam();
-
-      speak('Camera off');
-    }
-
-    // SWITCH
-    else if (
-      cmd.includes('switch')
-    ) {
-
-      switchCamera();
-
-      speak('Switching camera');
-    }
-  };
-}
-
-
-// ── LOAD MODELS ─────────────────────────────────────────────
+// ── LOAD MODELS ──────────────────────────────────────────
 Promise.all([
 
   cocoSsd.load({
     base: 'lite_mobilenet_v2'
   }),
 
-  mobilenet.load()
+  mobilenet.load(),
+
+  tmImage.load(
+    TM_URL + "model.json",
+    TM_URL + "metadata.json"
+  )
 
 ])
 
-.then(([loadedCoco, loadedMobileNet]) => {
+.then(([loadedCoco, loadedMobileNet, loadedTM]) => {
 
   cocoModel = loadedCoco;
 
   mobileNetModel = loadedMobileNet;
+
+  tmModel = loadedTM;
 
   clearInterval(fakeTimer);
 
@@ -215,16 +151,7 @@ Promise.all([
 
     setStatus('', 'READY');
 
-    log('Hybrid AI loaded successfully.');
-
-    if (recognition) {
-
-      try {
-
-        recognition.start();
-
-      } catch(e) {}
-    }
+    log('Hybrid AI + Teachable Machine loaded.');
 
   }, 400);
 
@@ -243,12 +170,13 @@ Promise.all([
 });
 
 
-// ── ENABLE CAMERA ───────────────────────────────────────────
+// ── ENABLE CAMERA ────────────────────────────────────────
 function enableCam() {
 
   if (
     !cocoModel ||
     !mobileNetModel ||
+    !tmModel ||
     isPredicting
   ) return;
 
@@ -296,21 +224,19 @@ function enableCam() {
 }
 
 
-// ── MAIN PREDICTION LOOP ────────────────────────────────────
+// ── MAIN PREDICTION LOOP ─────────────────────────────────
 async function predictLoop() {
 
   if (!isPredicting) return;
 
   try {
 
-    // ── OBJECT DETECTION ─────────────────────────────────
+    // ── COCO DETECTION ────────────────────────────────
     const predictions =
       await cocoModel.detect(video);
 
     if (!isPredicting) return;
 
-
-    // ── REMOVE OLD BOXES ────────────────────────────────
     children.forEach(c => {
 
       if (liveView.contains(c)) {
@@ -321,29 +247,18 @@ async function predictLoop() {
 
     children.length = 0;
 
+    let seen = [];
 
-    let proximityMsg = '';
-
-    const seen = [];
-
-
-    // ── DRAW DETECTIONS ─────────────────────────────────
     predictions.forEach(pred => {
 
       if (pred.score < 0.60) return;
 
       const [x, y, w, h] = pred.bbox;
 
-      const isNear =
-        (w * h) > WARNING_THRESHOLD;
-
-      // BOX
       const box =
         document.createElement('div');
 
-      box.className =
-        'highlighter' +
-        (isNear ? ' warning-box' : '');
+      box.className = 'highlighter';
 
       box.style.cssText = `
         left:${x}px;
@@ -352,13 +267,10 @@ async function predictLoop() {
         height:${h}px;
       `;
 
-      // LABEL
       const lbl =
         document.createElement('div');
 
-      lbl.className =
-        'label' +
-        (isNear ? ' warning-label' : '');
+      lbl.className = 'label';
 
       lbl.style.cssText = `
         left:${x}px;
@@ -375,121 +287,136 @@ async function predictLoop() {
       children.push(box, lbl);
 
       seen.push(pred.class);
-
-      if (isNear) {
-
-        proximityMsg =
-          `Warning, ${pred.class} is near`;
-      }
     });
 
 
-    // ── COCO DETECTION SUCCESS ──────────────────────────
+    // ── COCO SUCCESS ──────────────────────────────────
     if (seen.length > 0) {
 
       log(
-        'Detected: ' + seen.join(', ')
+        'COCO detected: ' + seen.join(', ')
       );
-
-      stablePrediction = '';
-      stableCount = 0;
 
       const now = Date.now();
 
+      const msg = seen[0];
+
       if (
-        proximityMsg &&
-        (
-          proximityMsg !== lastSpoken ||
-          now - lastSpokenTime >
-          REPEAT_INTERVAL
-        )
+        msg !== lastSpoken ||
+        now - lastSpokenTime >
+        REPEAT_INTERVAL
       ) {
 
-        speak(proximityMsg);
+        speak(msg);
 
-        lastSpoken = proximityMsg;
+        lastSpoken = msg;
 
         lastSpokenTime = now;
       }
     }
 
 
-    // ── FALLBACK TO MOBILENET ───────────────────────────
+    // ── TEACHABLE MACHINE ─────────────────────────────
     else {
 
-      log('Trying classification...');
+      const tmPredictions =
+        await tmModel.predict(video);
 
-      const classifications =
-        await mobileNetModel.classify(video);
-
-      if (classifications.length > 0) {
-
-        const best =
-          classifications[0];
-
-        // original full label
-        const objectName =
-          best.className;
-
-        // clean label
-        const cleanName =
-          objectName.split(',')[0];
-
-        const confidence =
-          Math.round(
-            best.probability * 100
-          );
-
-        log(
-          `Classification: ${cleanName} (${confidence}%)`
+      let bestTM =
+        tmPredictions.reduce((a, b) =>
+          a.probability > b.probability ? a : b
         );
 
+      if (bestTM.probability > 0.85) {
 
-        // ── STABILITY FILTER ─────────────────────────
+        const tmName =
+          bestTM.className;
+
+        log(
+          `TM Detected: ${tmName} (${Math.round(bestTM.probability * 100)}%)`
+        );
+
+        const now = Date.now();
+
         if (
-          cleanName === stablePrediction
+          tmName !== lastSpoken ||
+          now - lastSpokenTime >
+          REPEAT_INTERVAL
         ) {
 
-          stableCount++;
+          speak(tmName);
 
-        } else {
+          lastSpoken = tmName;
 
-          stablePrediction = cleanName;
-
-          stableCount = 1;
+          lastSpokenTime = now;
         }
+      }
 
 
-        // ── SPEAK ONLY IF STABLE ────────────────────
-        if (
-          stableCount >= REQUIRED_STABILITY
-        ) {
+      // ── MOBILENET FALLBACK ─────────────────────────
+      else {
 
-          const now = Date.now();
+        log('Trying MobileNet...');
+
+        const classifications =
+          await mobileNetModel.classify(video);
+
+        if (classifications.length > 0) {
+
+          const best =
+            classifications[0];
+
+          const cleanName =
+            best.className.split(',')[0];
+
+          const confidence =
+            Math.round(
+              best.probability * 100
+            );
+
+          log(
+            `MobileNet: ${cleanName} (${confidence}%)`
+          );
 
           if (
-            cleanName !== lastSpoken ||
-
-            now - lastSpokenTime >
-            REPEAT_INTERVAL
+            cleanName === stablePrediction
           ) {
 
-            speak(cleanName);
+            stableCount++;
 
-            lastSpoken = cleanName;
+          } else {
 
-            lastSpokenTime = now;
+            stablePrediction = cleanName;
+
+            stableCount = 1;
+          }
+
+          if (
+            stableCount >= REQUIRED_STABILITY
+          ) {
+
+            const now = Date.now();
+
+            if (
+              cleanName !== lastSpoken ||
+
+              now - lastSpokenTime >
+              REPEAT_INTERVAL
+            ) {
+
+              speak(cleanName);
+
+              lastSpoken = cleanName;
+
+              lastSpokenTime = now;
+            }
           }
         }
-
-      } else {
-
-        log('Scanning...');
       }
     }
 
 
-    // ── LOOP AGAIN ─────────────────────────────────────
+    // ── LOOP AGAIN ───────────────────────────────────
     animationId =
       setTimeout(
         predictLoop,
@@ -517,7 +444,7 @@ async function predictLoop() {
 }
 
 
-// ── SWITCH CAMERA ───────────────────────────────────────────
+// ── SWITCH CAMERA ─────────────────────────────────────────
 async function switchCamera() {
 
   if (stream) {
@@ -555,7 +482,7 @@ async function switchCamera() {
 }
 
 
-// ── STOP CAMERA ─────────────────────────────────────────────
+// ── STOP CAMERA ───────────────────────────────────────────
 function stopCam() {
 
   isPredicting = false;
@@ -608,7 +535,7 @@ function stopCam() {
 }
 
 
-// ── BUTTON EVENTS ───────────────────────────────────────────
+// ── BUTTON EVENTS ─────────────────────────────────────────
 startBtn.addEventListener(
   'click',
   enableCam
