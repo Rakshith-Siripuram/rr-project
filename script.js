@@ -91,64 +91,84 @@ function speak(text) {
 
 
 // ── LOAD MODELS ──────────────────────────────────────────
-Promise.all([
+// ── LOAD MODELS ──────────────────────────────────────────
+async function loadModels() {
 
-  cocoSsd.load({
-    base: 'lite_mobilenet_v2'
-  }),
+  try {
 
-  mobilenet.load(),
+    // COCO
+    loadMsg.textContent =
+      'Loading COCO SSD...';
 
-  tmImage.load(
-    TM_URL + "model.json",
-    TM_URL + "metadata.json"
-  )
+    cocoModel =
+      await cocoSsd.load({
+        base: 'lite_mobilenet_v2'
+      });
 
-])
 
-.then(([loadedCoco, loadedMobileNet, loadedTM]) => {
+    // MobileNet
+    loadMsg.textContent =
+      'Loading MobileNet...';
 
-  cocoModel = loadedCoco;
+    mobileNetModel =
+      await mobilenet.load();
 
-  mobileNetModel = loadedMobileNet;
 
-  tmModel = loadedTM;
+    // TM
+    loadMsg.textContent =
+      'Loading Teachable Machine...';
 
-  clearInterval(fakeTimer);
+    tmModel =
+      await tmImage.load(
+        TM_URL + "model.json",
+        TM_URL + "metadata.json"
+      );
 
-  loaderFill.style.width = '100%';
 
-  loadPercent.textContent = '100%';
+    // FINISH
+    clearInterval(fakeTimer);
 
-  loadMsg.textContent = 'READY';
+    loaderFill.style.width = '100%';
 
-  setTimeout(() => {
+    loadPercent.textContent = '100%';
 
-    overlay.style.display = 'none';
+    loadMsg.textContent = 'READY';
 
-    startBtn.disabled = false;
+    setTimeout(() => {
 
-    switchBtn.disabled = false;
+      overlay.style.display = 'none';
 
-    setStatus('', 'READY');
+      startBtn.disabled = false;
 
-    log('Hybrid AI + Teachable Machine loaded.');
+      switchBtn.disabled = false;
 
-  }, 400);
+      setStatus('', 'READY');
 
-})
+      log(
+        'Hybrid AI + TM loaded.'
+      );
 
-.catch(err => {
+    }, 400);
 
-  clearInterval(fakeTimer);
+  }
 
-  loadMsg.textContent =
-    'FAILED — Check internet';
+  catch(err) {
 
-  loadPercent.textContent = '';
+    clearInterval(fakeTimer);
 
-  console.error(err);
-});
+    loadMsg.textContent =
+      'FAILED — Check internet';
+
+    loadPercent.textContent = '';
+
+    console.error(
+      'MODEL LOAD ERROR:',
+      err
+    );
+  }
+}
+
+loadModels();
 
 
 // ── ENABLE CAMERA ────────────────────────────────────────
