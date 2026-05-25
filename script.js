@@ -224,7 +224,6 @@ function enableCam() {
     });
 }
 
-
 // ── MAIN PREDICTION LOOP ─────────────────────────────────
 async function predictLoop() {
 
@@ -238,6 +237,7 @@ async function predictLoop() {
 
     if (!isPredicting) return;
 
+    // Clear old boxes
     children.forEach(c => {
 
       if (liveView.contains(c)) {
@@ -250,9 +250,10 @@ async function predictLoop() {
 
     let seen = [];
 
+    // Draw boxes
     predictions.forEach(pred => {
 
-      if (pred.score < 0.60) return;
+      if (pred.score < 0.70) return;
 
       const [x, y, w, h] = pred.bbox;
 
@@ -290,131 +291,156 @@ async function predictLoop() {
       seen.push(pred.class);
     });
 
-// ── BEST PREDICTION SYSTEM ─────────────────────
 
-// ===== COCO BEST =====
-let bestCoco = null;
+    // ── BEST COCO ─────────────────────────────────────
+    let bestCoco = null;
 
-if (predictions.length > 0) {
+    if (predictions.length > 0) {
 
-  bestCoco =
-    predictions.reduce((a, b) =>
-      a.score > b.score ? a : b
-    );
-}
-
-
-// ===== TM BEST =====
-const tmPredictions =
-  await tmModel.predict(video);
-
-let bestTM =
-  tmPredictions.reduce((a, b) =>
-    a.probability > b.probability ? a : b
-  );
+      bestCoco =
+        predictions.reduce((a, b) =>
+          a.score > b.score ? a : b
+        );
+    }
 
 
-// ===== MOBILENET BEST =====
-const classifications =
-  await mobileNetModel.classify(video);
+    // ── TM PREDICTION ────────────────────────────────
+    const tmPredictions =
+      await tmModel.predict(video);
 
-let bestMobile =
-  classifications[0];
-
-
-// ===== FINAL SELECTION =====
-let finalLabel = 'Unknown';
-
-let finalConfidence = 0;
-
-let source = '';
+    let bestTM =
+      tmPredictions.reduce((a, b) =>
+        a.probability > b.probability ? a : b
+      );
 
 
-// COCO
-if (
-  bestCoco &&
-  bestCoco.score > finalConfidence
-) {
+    // ── FINAL DECISION ───────────────────────────────
+    let finalLabel = 'Unknown';
 
-  finalLabel =
-    bestCoco.class;
+    let finalConfidence = 0;
 
-  finalConfidence =
-    bestCoco.score;
-
-  source = 'COCO';
-}
+    let source = '';
 
 
-// TM
-if (
-  bestTM.probability > 0.85 &&
-  bestTM.probability > finalConfidence
-) {
+    // Prefer TM if highly confident
+    if (
+      bestTM.probability > 0.85
+    ) {
 
-  finalLabel =
-    bestTM.className;
+      finalLabel =
+        bestTM.className;
 
-  finalConfidence =
-    bestTM.probability;
+      finalConfidence =
+        bestTM.probability;
 
-  source = 'TM';
-}
-
-
-// MobileNet
-if (
-  bestMobile.probability > 0.90 &&
-  bestMobile.probability > finalConfidence
-) {
-
-  finalLabel =
-    bestMobile.className.split(',')[0];
-
-  finalConfidence =
-    bestMobile.probability;
-
-  source = 'MobileNet';
-}
+      source = 'TM';
+    }
 
 
-// ===== UNKNOWN CHECK =====
-if (finalConfidence < 0.60) {
+    // Otherwise use COCO
+    else if (
+      bestCoco &&
+      bestCoco.score > 0.70
+    ) {
 
-  log('Unknown Object');
+      finalLabel =
+        bestCoco.class;
 
-}
+      finalConfidence =
+        bestCoco.score;
 
-else {
+      source = 'COCO';
+    }
 
-  log(
-    `${source}: ${finalLabel} (${Math.round(finalConfidence * 100)}%)`
-  );
 
-  const now = Date.now();
+    // ── MOBILENET FALLBACK ───────────────────────────
+    else {
 
-  if (
-    finalLabel !== lastSpoken ||
+      const classifications =
+        await mobileNetModel.classify(video);
 
-    now - lastSpokenTime >
-    REPEAT_INTERVAL
-  ) {
+      if (classifications.length > 0) {
 
-    speak(finalLabel);
+        const bestMobile =
+          classifications[0];
 
-    lastSpoken = finalLabel;
+        if (
+          bestMobile.probability > 0.90
+        ) {
 
-    lastSpokenTime = now;
-  }
-}
+          finalLabel =
+            bestMobile.className.split(',')[0];
 
+          finalConfidence =
+            bestMobile.probability;
+
+          source = 'MobileNet';
+        }
+      }
+    }
+
+
+    // ── STABILITY FILTER ─────────────────────────────
+    if (
+      finalLabel === stablePrediction
+    ) {
+
+      stableCount++;
+
+    }
+
+    else {
+
+      stablePrediction =
+        finalLabel;
+
+      stableCount = 1;
+    }
+
+
+    // ── DISPLAY ──────────────────────────────────────
+    if (
+      finalConfidence < 0.60
+    ) {
+
+      log('Unknown Object');
+
+    }
+
+    else {
+
+      log(
+        `${source}: ${finalLabel} (${Math.round(finalConfidence * 100)}%)`
+      );
+
+      if (
+        stableCount >= REQUIRED_STABILITY
+      ) {
+
+        const now = Date.now();
+
+        if (
+          finalLabel !== lastSpoken ||
+
+          now - lastSpokenTime >
+          REPEAT_INTERVAL
+        ) {
+
+          speak(finalLabel);
+
+          lastSpoken = finalLabel;
+
+          lastSpokenTime = now;
+        }
+      }
+    }
 
 
     // ── LOOP AGAIN ───────────────────────────────────
     animationId =
       setTimeout(
         predictLoop,
-        DETECTION_INTERVAL
+        800
       );
 
   }
@@ -431,12 +457,11 @@ else {
       animationId =
         setTimeout(
           predictLoop,
-          DETECTION_INTERVAL
+          800
         );
     }
   }
 }
-
 
 // ── SWITCH CAMERA ─────────────────────────────────────────
 async function switchCamera() {
