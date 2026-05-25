@@ -31,7 +31,7 @@ let isPredicting = false;
 let animationId = null;
 const children = [];
 ─
-const DETECTION_INTERVAL = 300;
+const DETECTION_INTERVAL = 700;
 const WARNING_THRESHOLD = 40000;
 const REPEAT_INTERVAL = 3000;
 
@@ -90,7 +90,7 @@ function speak(text) {
 }
 
 
-// ── LOAD MODELS ──────────────────────────────────────────
+
 // ── LOAD MODELS ──────────────────────────────────────────
 async function loadModels() {
 
@@ -224,217 +224,137 @@ function enableCam() {
     });
 }
 
-// ── MAIN PREDICTION LOOP ─────────────────────────────────
-async function predictLoop() {
+// ── STEP 1: COCO ──────────────────────────────
 
-  if (!isPredicting) return;
+if (seen.length > 0) {
 
-  try {
+  const bestCoco =
+    predictions.reduce((a, b) =>
+      a.score > b.score ? a : b
+    );
 
-    // ── COCO DETECTION ────────────────────────────────
-    const predictions =
-      await cocoModel.detect(video);
+  // Strong COCO confidence
+  if (bestCoco.score > 0.75) {
 
-    if (!isPredicting) return;
+    const label =
+      bestCoco.class;
 
-    // Clear old boxes
-    children.forEach(c => {
+    log(
+      `COCO: ${label} (${Math.round(bestCoco.score * 100)}%)`
+    );
 
-      if (liveView.contains(c)) {
+    speakResult(label);
 
-        liveView.removeChild(c);
-      }
-    });
-
-    children.length = 0;
-
-    let seen = [];
-
-    // Draw boxes
-    predictions.forEach(pred => {
-
-      if (pred.score < 0.70) return;
-
-      const [x, y, w, h] = pred.bbox;
-
-      const box =
-        document.createElement('div');
-
-      box.className = 'highlighter';
-
-      box.style.cssText = `
-        left:${x}px;
-        top:${y}px;
-        width:${w}px;
-        height:${h}px;
-      `;
-
-      const lbl =
-        document.createElement('div');
-
-      lbl.className = 'label';
-
-      lbl.style.cssText = `
-        left:${x}px;
-        top:${Math.max(0, y - 22)}px;
-      `;
-
-      lbl.textContent =
-        `${pred.class} ${Math.round(pred.score * 100)}%`;
-
-      liveView.appendChild(box);
-
-      liveView.appendChild(lbl);
-
-      children.push(box, lbl);
-
-      seen.push(pred.class);
-    });
-
-
-    // ── BEST COCO ─────────────────────────────────────
-    let bestCoco = null;
-
-    if (predictions.length > 0) {
-
-      bestCoco =
-        predictions.reduce((a, b) =>
-          a.score > b.score ? a : b
-        );
-    }
-
-
-    // ── TM PREDICTION ────────────────────────────────
-    const tmPredictions =
-      await tmModel.predict(video);
-
-    let bestTM =
-      tmPredictions.reduce((a, b) =>
-        a.probability > b.probability ? a : b
+    animationId =
+      setTimeout(
+        predictLoop,
+        DETECTION_INTERVAL
       );
 
-
-    // ── FINAL DECISION ───────────────────────────────
-    let finalLabel = 'Unknown';
-
-    let finalConfidence = 0;
-
-    let source = '';
+    return;
+  }
+}
 
 
-    // Prefer TM if highly confident
-    if (
-      bestTM.probability > 0.85
-    ) {
+// ── STEP 2: MOBILENET ─────────────────────────
 
-      finalLabel =
-        bestTM.className;
+const classifications =
+  await mobileNetModel.classify(video);
 
-      finalConfidence =
-        bestTM.probability;
+if (classifications.length > 0) {
 
-      source = 'TM';
-    }
+  const bestMobile =
+    classifications[0];
 
+  const mobileLabel =
+    bestMobile.className.split(',')[0];
 
-    // Otherwise use COCO
-    else if (
-      bestCoco &&
-      bestCoco.score > 0.70
-    ) {
+  // Strong MobileNet confidence
+  if (bestMobile.probability > 0.90) {
 
-      finalLabel =
-        bestCoco.class;
+    log(
+      `MobileNet: ${mobileLabel} (${Math.round(bestMobile.probability * 100)}%)`
+    );
 
-      finalConfidence =
-        bestCoco.score;
+    speakResult(mobileLabel);
 
-      source = 'COCO';
-    }
-
-
-    // ── MOBILENET FALLBACK ───────────────────────────
-    else {
-
-      const classifications =
-        await mobileNetModel.classify(video);
-
-      if (classifications.length > 0) {
-
-        const bestMobile =
-          classifications[0];
-
-        if (
-          bestMobile.probability > 0.90
-        ) {
-
-          finalLabel =
-            bestMobile.className.split(',')[0];
-
-          finalConfidence =
-            bestMobile.probability;
-
-          source = 'MobileNet';
-        }
-      }
-    }
-
-
-    // ── STABILITY FILTER ─────────────────────────────
-    if (
-      finalLabel === stablePrediction
-    ) {
-
-      stableCount++;
-
-    }
-
-    else {
-
-      stablePrediction =
-        finalLabel;
-
-      stableCount = 1;
-    }
-
-
-    // ── DISPLAY ──────────────────────────────────────
-    if (
-      finalConfidence < 0.60
-    ) {
-
-      log('Unknown Object');
-
-    }
-
-    else {
-
-      log(
-        `${source}: ${finalLabel} (${Math.round(finalConfidence * 100)}%)`
+    animationId =
+      setTimeout(
+        predictLoop,
+        DETECTION_INTERVAL
       );
 
-      if (
-        stableCount >= REQUIRED_STABILITY
-      ) {
+    return;
+  }
+}
 
-        const now = Date.now();
 
-        if (
-          finalLabel !== lastSpoken ||
+// ── STEP 3: TEACHABLE MACHINE ─────────────────
 
-          now - lastSpokenTime >
-          REPEAT_INTERVAL
-        ) {
+const tmPredictions =
+  await tmModel.predict(video);
 
-          speak(finalLabel);
+let bestTM =
+  tmPredictions.reduce((a, b) =>
+    a.probability > b.probability ? a : b
+  );
 
-          lastSpoken = finalLabel;
+if (bestTM.probability > 0.85) {
 
-          lastSpokenTime = now;
-        }
-      }
+  const tmLabel =
+    bestTM.className;
+
+  log(
+    `TM: ${tmLabel} (${Math.round(bestTM.probability * 100)}%)`
+  );
+
+  speakResult(tmLabel);
+}
+
+
+// ── UNKNOWN ───────────────────────────────────
+else {
+
+  log('Unknown Object');
+}
+function speakResult(label) {
+
+  if (
+    label === stablePrediction
+  ) {
+
+    stableCount++;
+
+  }
+
+  else {
+
+    stablePrediction = label;
+
+    stableCount = 1;
+  }
+
+  if (
+    stableCount >= REQUIRED_STABILITY
+  ) {
+
+    const now = Date.now();
+
+    if (
+      label !== lastSpoken ||
+
+      now - lastSpokenTime >
+      REPEAT_INTERVAL
+    ) {
+
+      speak(label);
+
+      lastSpoken = label;
+
+      lastSpokenTime = now;
     }
-
+  }
+}
 
     // ── LOOP AGAIN ───────────────────────────────────
     animationId =
