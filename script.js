@@ -1,9 +1,7 @@
-// ── TEACHABLE MACHINE URL ───────────────────────────────
+
 const TM_URL =
   "https://teachablemachine.withgoogle.com/models/b9lFDElzn/";
 
-
-// ── GET HTML ELEMENTS ─────────────────────────────────────
 const video       = document.getElementById('webcam');
 const liveView    = document.getElementById('liveView');
 const placeholder = document.getElementById('placeholder');
@@ -22,42 +20,29 @@ const loaderFill  = document.getElementById('loaderFill');
 const loadMsg     = document.getElementById('loadMsg');
 const loadPercent = document.getElementById('loadPercent');
 
-
-// ── MODELS ───────────────────────────────────────────────
 let cocoModel;
 let mobileNetModel;
 let tmModel;
 
-
-// ── CAMERA / STATE ───────────────────────────────────────
 let stream;
 let facingMode = 'environment';
 
 let isPredicting = false;
 let animationId = null;
-
 const children = [];
-
-
-// ── SETTINGS ─────────────────────────────────────────────
+─
 const DETECTION_INTERVAL = 300;
-
 const WARNING_THRESHOLD = 40000;
-
 const REPEAT_INTERVAL = 3000;
 
 const REQUIRED_STABILITY = 3;
 
-
-// ── SPEECH MEMORY ────────────────────────────────────────
 let lastSpoken = '';
 let lastSpokenTime = 0;
 
 let stablePrediction = '';
 let stableCount = 0;
 
-
-// ── FAKE LOADING BAR ─────────────────────────────────────
 let fakeProgress = 0;
 
 const fakeTimer = setInterval(() => {
@@ -74,8 +59,6 @@ const fakeTimer = setInterval(() => {
 
 }, 400);
 
-
-// ── STATUS ───────────────────────────────────────────────
 function setStatus(cls, text) {
 
   statusDot.className =
@@ -84,8 +67,6 @@ function setStatus(cls, text) {
   statusText.textContent = text;
 }
 
-
-// ── LOG ──────────────────────────────────────────────────
 function log(msg, type) {
 
   logEl.innerHTML =
@@ -289,131 +270,124 @@ async function predictLoop() {
       seen.push(pred.class);
     });
 
+// ── BEST PREDICTION SYSTEM ─────────────────────
 
-    // ── COCO SUCCESS ──────────────────────────────────
-    if (seen.length > 0) {
+// ===== COCO BEST =====
+let bestCoco = null;
 
-      log(
-        'COCO detected: ' + seen.join(', ')
-      );
+if (predictions.length > 0) {
 
-      const now = Date.now();
-
-      const msg = seen[0];
-
-      if (
-        msg !== lastSpoken ||
-        now - lastSpokenTime >
-        REPEAT_INTERVAL
-      ) {
-
-        speak(msg);
-
-        lastSpoken = msg;
-
-        lastSpokenTime = now;
-      }
-    }
+  bestCoco =
+    predictions.reduce((a, b) =>
+      a.score > b.score ? a : b
+    );
+}
 
 
-    // ── TEACHABLE MACHINE ─────────────────────────────
-    else {
+// ===== TM BEST =====
+const tmPredictions =
+  await tmModel.predict(video);
 
-      const tmPredictions =
-        await tmModel.predict(video);
-
-      let bestTM =
-        tmPredictions.reduce((a, b) =>
-          a.probability > b.probability ? a : b
-        );
-
-      if (bestTM.probability > 0.85) {
-
-        const tmName =
-          bestTM.className;
-
-        log(
-          `TM Detected: ${tmName} (${Math.round(bestTM.probability * 100)}%)`
-        );
-
-        const now = Date.now();
-
-        if (
-          tmName !== lastSpoken ||
-          now - lastSpokenTime >
-          REPEAT_INTERVAL
-        ) {
-
-          speak(tmName);
-
-          lastSpoken = tmName;
-
-          lastSpokenTime = now;
-        }
-      }
+let bestTM =
+  tmPredictions.reduce((a, b) =>
+    a.probability > b.probability ? a : b
+  );
 
 
-      // ── MOBILENET FALLBACK ─────────────────────────
-      else {
+// ===== MOBILENET BEST =====
+const classifications =
+  await mobileNetModel.classify(video);
 
-        log('Trying MobileNet...');
+let bestMobile =
+  classifications[0];
 
-        const classifications =
-          await mobileNetModel.classify(video);
 
-        if (classifications.length > 0) {
+// ===== FINAL SELECTION =====
+let finalLabel = 'Unknown';
 
-          const best =
-            classifications[0];
+let finalConfidence = 0;
 
-          const cleanName =
-            best.className.split(',')[0];
+let source = '';
 
-          const confidence =
-            Math.round(
-              best.probability * 100
-            );
 
-          log(
-            `MobileNet: ${cleanName} (${confidence}%)`
-          );
+// COCO
+if (
+  bestCoco &&
+  bestCoco.score > finalConfidence
+) {
 
-          if (
-            cleanName === stablePrediction
-          ) {
+  finalLabel =
+    bestCoco.class;
 
-            stableCount++;
+  finalConfidence =
+    bestCoco.score;
 
-          } else {
+  source = 'COCO';
+}
 
-            stablePrediction = cleanName;
 
-            stableCount = 1;
-          }
+// TM
+if (
+  bestTM.probability > 0.85 &&
+  bestTM.probability > finalConfidence
+) {
 
-          if (
-            stableCount >= REQUIRED_STABILITY
-          ) {
+  finalLabel =
+    bestTM.className;
 
-            const now = Date.now();
+  finalConfidence =
+    bestTM.probability;
 
-            if (
-              cleanName !== lastSpoken ||
+  source = 'TM';
+}
 
-              now - lastSpokenTime >
-              REPEAT_INTERVAL
-            ) {
 
-              speak(cleanName);
+// MobileNet
+if (
+  bestMobile.probability > 0.90 &&
+  bestMobile.probability > finalConfidence
+) {
 
-              lastSpoken = cleanName;
+  finalLabel =
+    bestMobile.className.split(',')[0];
 
-              lastSpokenTime = now;
-            }
-          }
-        }
-      }
-    }
+  finalConfidence =
+    bestMobile.probability;
+
+  source = 'MobileNet';
+}
+
+
+// ===== UNKNOWN CHECK =====
+if (finalConfidence < 0.60) {
+
+  log('Unknown Object');
+
+}
+
+else {
+
+  log(
+    `${source}: ${finalLabel} (${Math.round(finalConfidence * 100)}%)`
+  );
+
+  const now = Date.now();
+
+  if (
+    finalLabel !== lastSpoken ||
+
+    now - lastSpokenTime >
+    REPEAT_INTERVAL
+  ) {
+
+    speak(finalLabel);
+
+    lastSpoken = finalLabel;
+
+    lastSpokenTime = now;
+  }
+}
+
 
 
     // ── LOOP AGAIN ───────────────────────────────────
