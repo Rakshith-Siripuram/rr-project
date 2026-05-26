@@ -1,35 +1,28 @@
-// ── TEACHABLE MACHINE URL ───────────────────────────────
 const TM_URL =
   "https://teachablemachine.withgoogle.com/models/b9lFDElzn/";
 
-
-// ── GET HTML ELEMENTS ─────────────────────────────────────
-const video       = document.getElementById('webcam');
-const liveView    = document.getElementById('liveView');
+const video = document.getElementById('webcam');
+const liveView = document.getElementById('liveView');
 const placeholder = document.getElementById('placeholder');
 
-const startBtn    = document.getElementById('startBtn');
-const stopBtn     = document.getElementById('stopBtn');
-const switchBtn   = document.getElementById('switchBtn');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const switchBtn = document.getElementById('switchBtn');
 
-const statusDot   = document.getElementById('statusDot');
-const statusText  = document.getElementById('status-text');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('status-text');
 
-const logEl       = document.getElementById('log');
+const logEl = document.getElementById('log');
 
-const overlay     = document.getElementById('loadingOverlay');
-const loaderFill  = document.getElementById('loaderFill');
-const loadMsg     = document.getElementById('loadMsg');
+const overlay = document.getElementById('loadingOverlay');
+const loaderFill = document.getElementById('loaderFill');
+const loadMsg = document.getElementById('loadMsg');
 const loadPercent = document.getElementById('loadPercent');
 
-
-// ── MODELS ───────────────────────────────────────────────
 let cocoModel;
 let mobileNetModel;
 let tmModel;
 
-
-// ── CAMERA / STATE ───────────────────────────────────────
 let stream;
 let facingMode = 'environment';
 
@@ -38,515 +31,510 @@ let animationId = null;
 
 const children = [];
 
-
-// ── SETTINGS ─────────────────────────────────────────────
 const DETECTION_INTERVAL = 300;
-
-const WARNING_THRESHOLD = 40000;
-
 const REPEAT_INTERVAL = 3000;
-
 const REQUIRED_STABILITY = 3;
 
-
-// ── SPEECH MEMORY ────────────────────────────────────────
 let lastSpoken = '';
 let lastSpokenTime = 0;
 
 let stablePrediction = '';
 let stableCount = 0;
 
+speechSynthesis.onvoiceschanged = function () {
+    speechSynthesis.getVoices();
+};
 
-// ── FAKE LOADING BAR ─────────────────────────────────────
+function setStatus(cls, text){
+
+    statusDot.className =
+        'status-dot ' + cls;
+
+    statusText.textContent = text;
+}
+
+function log(msg, type){
+
+    logEl.innerHTML =
+        type === 'warn'
+        ? `<span class="warn">⚠ ${msg}</span>`
+        : `<span>›</span> ${msg}`;
+}
+
+function speak(text){
+
+    console.log("Speaking:", text);
+
+    speechSynthesis.cancel();
+
+    let speech =
+        new SpeechSynthesisUtterance(text);
+
+    speech.rate = 1;
+    speech.pitch = 1;
+    speech.volume = 1;
+
+    speech.onerror = function(e){
+        console.log("Speech error", e);
+    };
+
+    setTimeout(function(){
+
+        speechSynthesis.speak(speech);
+
+    },100);
+}
+
 let fakeProgress = 0;
 
 const fakeTimer = setInterval(() => {
 
-  fakeProgress += Math.random() * 6;
+    fakeProgress += Math.random() * 6;
 
-  if (fakeProgress > 88) fakeProgress = 88;
+    if(fakeProgress > 88){
+        fakeProgress = 88;
+    }
 
-  loaderFill.style.width =
-    fakeProgress + '%';
+    loaderFill.style.width =
+        fakeProgress + '%';
 
-  loadPercent.textContent =
-    Math.round(fakeProgress) + '%';
+    loadPercent.textContent =
+        Math.round(fakeProgress) + '%';
 
-}, 400);
+},400);
 
-
-// ── STATUS ───────────────────────────────────────────────
-function setStatus(cls, text) {
-
-  statusDot.className =
-    'status-dot ' + cls;
-
-  statusText.textContent = text;
-}
-
-
-// ── LOG ──────────────────────────────────────────────────
-function log(msg, type) {
-
-  logEl.innerHTML =
-    type === 'warn'
-      ? `<span class="warn">⚠ ${msg}</span>`
-      : `<span>›</span> ${msg}`;
-}
-
-
-// ── SPEAK ────────────────────────────────────────────────
-function speak(text) {
-
-  if (speechSynthesis.speaking) return;
-
-  const u =
-    new SpeechSynthesisUtterance(text);
-
-  u.rate = 1.1;
-
-  speechSynthesis.speak(u);
-}
-
-
-// ── LOAD MODELS ──────────────────────────────────────────
 Promise.all([
 
-  cocoSsd.load({
-    base: 'lite_mobilenet_v2'
-  }),
+    cocoSsd.load({
+        base: 'lite_mobilenet_v2'
+    }),
 
-  mobilenet.load(),
+    mobilenet.load(),
 
-  tmImage.load(
-    TM_URL + "model.json",
-    TM_URL + "metadata.json"
-  )
+    tmImage.load(
+        TM_URL + "model.json",
+        TM_URL + "metadata.json"
+    )
 
 ])
 
 .then(([loadedCoco, loadedMobileNet, loadedTM]) => {
 
-  cocoModel = loadedCoco;
+    cocoModel = loadedCoco;
+    mobileNetModel = loadedMobileNet;
+    tmModel = loadedTM;
 
-  mobileNetModel = loadedMobileNet;
+    clearInterval(fakeTimer);
 
-  tmModel = loadedTM;
+    loaderFill.style.width = '100%';
+    loadPercent.textContent = '100%';
+    loadMsg.textContent = 'READY';
 
-  clearInterval(fakeTimer);
+    setTimeout(() => {
 
-  loaderFill.style.width = '100%';
+        overlay.style.display = 'none';
 
-  loadPercent.textContent = '100%';
+        startBtn.disabled = false;
+        switchBtn.disabled = false;
 
-  loadMsg.textContent = 'READY';
+        setStatus('', 'READY');
 
-  setTimeout(() => {
+        log('Models loaded successfully');
 
-    overlay.style.display = 'none';
-
-    startBtn.disabled = false;
-
-    switchBtn.disabled = false;
-
-    setStatus('', 'READY');
-
-    log('Hybrid AI + Teachable Machine loaded.');
-
-  }, 400);
+    },400);
 
 })
 
 .catch(err => {
 
-  clearInterval(fakeTimer);
+    clearInterval(fakeTimer);
 
-  loadMsg.textContent =
-    'FAILED — Check internet';
+    loadMsg.textContent =
+        'FAILED';
 
-  loadPercent.textContent = '';
-
-  console.error(err);
+    console.error(err);
 });
 
+function enableCam(){
 
-// ── ENABLE CAMERA ────────────────────────────────────────
-function enableCam() {
+    if(
+        !cocoModel ||
+        !mobileNetModel ||
+        !tmModel ||
+        isPredicting
+    ){
+        return;
+    }
 
-  if (
-    !cocoModel ||
-    !mobileNetModel ||
-    !tmModel ||
-    isPredicting
-  ) return;
-
-  navigator.mediaDevices
+    navigator.mediaDevices
     .getUserMedia({
-      video: { facingMode }
+        video: { facingMode }
     })
 
     .then(s => {
 
-      stream = s;
+        stream = s;
 
-      video.srcObject = stream;
+        video.srcObject = stream;
 
-      placeholder.style.display = 'none';
+        placeholder.style.display = 'none';
 
-      video.onloadeddata = () => {
+        video.onloadeddata = () => {
 
-        isPredicting = true;
+            isPredicting = true;
 
-        startBtn.disabled = true;
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
 
-        stopBtn.disabled = false;
+            setStatus(
+                'active',
+                'DETECTING'
+            );
 
-        setStatus(
-          'active',
-          'DETECTING'
-        );
+            log('Detection started');
 
-        log('Detection running.');
+            let startVoice =
+                new SpeechSynthesisUtterance(
+                    "Camera started"
+                );
 
-        predictLoop();
-      };
+            speechSynthesis.speak(startVoice);
+
+            predictLoop();
+        };
     })
 
     .catch(err => {
 
-      log(
-        'Camera error: ' + err.message,
-        'warn'
-      );
+        log(
+            'Camera error',
+            'warn'
+        );
 
-      console.error(err);
+        console.error(err);
     });
 }
 
+async function predictLoop(){
 
-// ── MAIN PREDICTION LOOP ─────────────────────────────────
-async function predictLoop() {
+    if(!isPredicting){
+        return;
+    }
 
-  if (!isPredicting) return;
+    try{
 
-  try {
+        const predictions =
+            await cocoModel.detect(video);
 
-    // ── COCO DETECTION ────────────────────────────────
-    const predictions =
-      await cocoModel.detect(video);
+        if(!isPredicting){
+            return;
+        }
 
-    if (!isPredicting) return;
+        children.forEach(c => {
+
+            if(liveView.contains(c)){
+
+                liveView.removeChild(c);
+            }
+        });
+
+        children.length = 0;
+
+        let seen = [];
+
+        predictions.forEach(pred => {
+
+            if(pred.score < 0.60){
+                return;
+            }
+
+            const [x, y, w, h] =
+                pred.bbox;
+
+            const box =
+                document.createElement('div');
+
+            box.className = 'highlighter';
+
+            box.style.left = x + 'px';
+            box.style.top = y + 'px';
+            box.style.width = w + 'px';
+            box.style.height = h + 'px';
+
+            const lbl =
+                document.createElement('div');
+
+            lbl.className = 'label';
+
+            lbl.style.left = x + 'px';
+            lbl.style.top =
+                Math.max(0, y - 22) + 'px';
+
+            lbl.textContent =
+                pred.class +
+                " " +
+                Math.round(pred.score * 100) +
+                "%";
+
+            liveView.appendChild(box);
+            liveView.appendChild(lbl);
+
+            children.push(box);
+            children.push(lbl);
+
+            seen.push(pred.class);
+        });
+
+        if(seen.length > 0){
+
+            log(
+                'COCO detected: ' +
+                seen.join(', ')
+            );
+
+            const msg = seen[0];
+
+            const now = Date.now();
+
+            if(
+                msg !== lastSpoken ||
+                now - lastSpokenTime >
+                REPEAT_INTERVAL
+            ){
+
+                speak(msg);
+
+                lastSpoken = msg;
+                lastSpokenTime = now;
+            }
+        }
+
+        else{
+
+            const tmPredictions =
+                await tmModel.predict(video);
+
+            let bestTM =
+                tmPredictions.reduce((a,b) =>
+                    a.probability > b.probability
+                    ? a : b
+                );
+
+            if(bestTM.probability > 0.85){
+
+                const tmName =
+                    bestTM.className;
+
+                log(
+                    'TM Detected: ' +
+                    tmName
+                );
+
+                const now = Date.now();
+
+                if(
+                    tmName !== lastSpoken ||
+                    now - lastSpokenTime >
+                    REPEAT_INTERVAL
+                ){
+
+                    speak(tmName);
+
+                    lastSpoken = tmName;
+                    lastSpokenTime = now;
+                }
+            }
+
+            else{
+
+                log('Trying MobileNet');
+
+                const classifications =
+                    await mobileNetModel.classify(video);
+
+                if(classifications.length > 0){
+
+                    const best =
+                        classifications[0];
+
+                    const cleanName =
+                        best.className
+                        .split(',')[0];
+
+                    const confidence =
+                        Math.round(
+                            best.probability * 100
+                        );
+
+                    log(
+                        'MobileNet: ' +
+                        cleanName +
+                        ' (' +
+                        confidence +
+                        '%)'
+                    );
+
+                    if(
+                        cleanName === stablePrediction
+                    ){
+
+                        stableCount++;
+
+                    }else{
+
+                        stablePrediction =
+                            cleanName;
+
+                        stableCount = 1;
+                    }
+
+                    if(
+                        stableCount >=
+                        REQUIRED_STABILITY
+                    ){
+
+                        const now = Date.now();
+
+                        if(
+                            cleanName !== lastSpoken ||
+                            now - lastSpokenTime >
+                            REPEAT_INTERVAL
+                        ){
+
+                            speak(cleanName);
+
+                            lastSpoken = cleanName;
+
+                            lastSpokenTime = now;
+                        }
+                    }
+                }
+            }
+        }
+
+        animationId =
+            setTimeout(
+                predictLoop,
+                DETECTION_INTERVAL
+            );
+    }
+
+    catch(err){
+
+        console.error(
+            "Prediction error:",
+            err
+        );
+
+        if(isPredicting){
+
+            animationId =
+                setTimeout(
+                    predictLoop,
+                    DETECTION_INTERVAL
+                );
+        }
+    }
+}
+
+async function switchCamera(){
+
+    if(stream){
+
+        stream
+        .getTracks()
+        .forEach(t => t.stop());
+    }
+
+    facingMode =
+        facingMode === 'environment'
+        ? 'user'
+        : 'environment';
+
+    try{
+
+        stream =
+            await navigator.mediaDevices
+            .getUserMedia({
+                video: { facingMode }
+            });
+
+        video.srcObject = stream;
+
+        log('Camera switched');
+
+    }
+
+    catch(err){
+
+        log(
+            'Switch failed',
+            'warn'
+        );
+
+        console.error(err);
+    }
+}
+
+function stopCam(){
+
+    isPredicting = false;
+
+    if(animationId){
+
+        clearTimeout(animationId);
+
+        animationId = null;
+    }
+
+    if(stream){
+
+        stream
+        .getTracks()
+        .forEach(t => t.stop());
+
+        video.srcObject = null;
+
+        stream = null;
+    }
+
+    speechSynthesis.cancel();
 
     children.forEach(c => {
 
-      if (liveView.contains(c)) {
+        if(liveView.contains(c)){
 
-        liveView.removeChild(c);
-      }
+            liveView.removeChild(c);
+        }
     });
 
     children.length = 0;
 
-    let seen = [];
+    placeholder.style.display = 'flex';
 
-    predictions.forEach(pred => {
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
 
-      if (pred.score < 0.60) return;
+    lastSpoken = '';
+    stablePrediction = '';
+    stableCount = 0;
 
-      const [x, y, w, h] = pred.bbox;
+    setStatus('', 'READY');
 
-      const box =
-        document.createElement('div');
-
-      box.className = 'highlighter';
-
-      box.style.cssText = `
-        left:${x}px;
-        top:${y}px;
-        width:${w}px;
-        height:${h}px;
-      `;
-
-      const lbl =
-        document.createElement('div');
-
-      lbl.className = 'label';
-
-      lbl.style.cssText = `
-        left:${x}px;
-        top:${Math.max(0, y - 22)}px;
-      `;
-
-      lbl.textContent =
-        `${pred.class} ${Math.round(pred.score * 100)}%`;
-
-      liveView.appendChild(box);
-
-      liveView.appendChild(lbl);
-
-      children.push(box, lbl);
-
-      seen.push(pred.class);
-    });
-
-
-    // ── COCO SUCCESS ──────────────────────────────────
-    if (seen.length > 0) {
-
-      log(
-        'COCO detected: ' + seen.join(', ')
-      );
-
-      const now = Date.now();
-
-      const msg = seen[0];
-
-      if (
-        msg !== lastSpoken ||
-        now - lastSpokenTime >
-        REPEAT_INTERVAL
-      ) {
-
-        speak(msg);
-
-        lastSpoken = msg;
-
-        lastSpokenTime = now;
-      }
-    }
-
-
-    // ── TEACHABLE MACHINE ─────────────────────────────
-    else {
-
-      const tmPredictions =
-        await tmModel.predict(video);
-
-      let bestTM =
-        tmPredictions.reduce((a, b) =>
-          a.probability > b.probability ? a : b
-        );
-
-      if (bestTM.probability > 0.85) {
-
-        const tmName =
-          bestTM.className;
-
-        log(
-          `TM Detected: ${tmName} (${Math.round(bestTM.probability * 100)}%)`
-        );
-
-        const now = Date.now();
-
-        if (
-          tmName !== lastSpoken ||
-          now - lastSpokenTime >
-          REPEAT_INTERVAL
-        ) {
-
-          speak(tmName);
-
-          lastSpoken = tmName;
-
-          lastSpokenTime = now;
-        }
-      }
-
-
-      // ── MOBILENET FALLBACK ─────────────────────────
-      else {
-
-        log('Trying MobileNet...');
-
-        const classifications =
-          await mobileNetModel.classify(video);
-
-        if (classifications.length > 0) {
-
-          const best =
-            classifications[0];
-
-          const cleanName =
-            best.className.split(',')[0];
-
-          const confidence =
-            Math.round(
-              best.probability * 100
-            );
-
-          log(
-            `MobileNet: ${cleanName} (${confidence}%)`
-          );
-
-          if (
-            cleanName === stablePrediction
-          ) {
-
-            stableCount++;
-
-          } else {
-
-            stablePrediction = cleanName;
-
-            stableCount = 1;
-          }
-
-          if (
-            stableCount >= REQUIRED_STABILITY
-          ) {
-
-            const now = Date.now();
-
-            if (
-              cleanName !== lastSpoken ||
-
-              now - lastSpokenTime >
-              REPEAT_INTERVAL
-            ) {
-
-              speak(cleanName);
-
-              lastSpoken = cleanName;
-
-              lastSpokenTime = now;
-            }
-          }
-        }
-      }
-    }
-
-
-    // ── LOOP AGAIN ───────────────────────────────────
-    animationId =
-      setTimeout(
-        predictLoop,
-        DETECTION_INTERVAL
-      );
-
-  }
-
-  catch(err) {
-
-    console.error(
-      'Prediction error:',
-      err
-    );
-
-    if (isPredicting) {
-
-      animationId =
-        setTimeout(
-          predictLoop,
-          DETECTION_INTERVAL
-        );
-    }
-  }
+    log('Camera stopped');
 }
 
-
-// ── SWITCH CAMERA ─────────────────────────────────────────
-async function switchCamera() {
-
-  if (stream) {
-
-    stream
-      .getTracks()
-      .forEach(t => t.stop());
-  }
-
-  facingMode =
-    facingMode === 'environment'
-      ? 'user'
-      : 'environment';
-
-  try {
-
-    stream =
-      await navigator.mediaDevices
-        .getUserMedia({
-          video: { facingMode }
-        });
-
-    video.srcObject = stream;
-
-    log('Camera switched.');
-
-  }
-
-  catch(err) {
-
-    log('Switch failed.', 'warn');
-
-    console.error(err);
-  }
-}
-
-
-// ── STOP CAMERA ───────────────────────────────────────────
-function stopCam() {
-
-  isPredicting = false;
-
-  if (animationId) {
-
-    clearTimeout(animationId);
-
-    animationId = null;
-  }
-
-  if (stream) {
-
-    stream
-      .getTracks()
-      .forEach(t => t.stop());
-
-    video.srcObject = null;
-
-    stream = null;
-  }
-
-  speechSynthesis.cancel();
-
-  children.forEach(c => {
-
-    if (liveView.contains(c)) {
-
-      liveView.removeChild(c);
-    }
-  });
-
-  children.length = 0;
-
-  placeholder.style.display = 'flex';
-
-  startBtn.disabled = false;
-
-  stopBtn.disabled = true;
-
-  lastSpoken = '';
-
-  stablePrediction = '';
-
-  stableCount = 0;
-
-  setStatus('', 'READY');
-
-  log('Camera stopped.');
-}
-
-
-// ── BUTTON EVENTS ─────────────────────────────────────────
 startBtn.addEventListener(
-  'click',
-  enableCam
+    'click',
+    enableCam
 );
 
 stopBtn.addEventListener(
-  'click',
-  stopCam
+    'click',
+    stopCam
 );
 
 switchBtn.addEventListener(
-  'click',
-  switchCamera
+    'click',
+    switchCamera
 );
