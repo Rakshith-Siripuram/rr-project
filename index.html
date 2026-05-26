@@ -1,37 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
   <meta charset="UTF-8" />
-
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0"/>
-
   <title>Hybrid Object Detector</title>
-
-  <!-- TensorFlow -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.20.0/dist/tf.min.js"></script>
-
-<!-- COCO SSD -->
 <script src="https://unpkg.com/@tensorflow-models/coco-ssd"></script>
-
-<!-- MobileNet -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
-
-<!-- Teachable Machine -->
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-
-  <!-- CSS -->
   <link rel="stylesheet" href="style.css" />
-
 </head>
-
 <body>
-
-  <!-- LOADING OVERLAY -->
   <div id="loadingOverlay">
-
     <h1>HYBRID OBJECT DETECTOR</h1>
 
     <div class="loader-bar">
@@ -39,117 +20,64 @@
       <div class="loader-fill"
            id="loaderFill">
       </div>
-
     </div>
-
     <div id="loadMsg">
       DOWNLOADING AI MODELS...
     </div>
-
     <div id="loadPercent">
       0%
     </div>
-
   </div>
-
-
-  <!-- HEADER -->
   <header>
-
     <div class="logo">
       Hybrid Object Detector
     </div>
-
     <div>
-
       <span class="status-dot loading"
             id="statusDot">
       </span>
-
       <span id="status-text">
         LOADING
       </span>
-
     </div>
-
   </header>
-
-
-  <!-- MAIN -->
   <main>
-
-    <!-- CAMERA VIEW -->
     <div id="liveView">
-
-      <!-- VIDEO -->
       <video id="webcam"
              autoplay
              muted
              playsinline>
       </video>
-
-
-      <!-- MOBILENET LABEL -->
       <div id="mobileNetLabel"></div>
-
-
-      <!-- PLACEHOLDER -->
       <div id="placeholder">
-
         <div class="cam-icon"></div>
-
         <span>CAMERA OFF</span>
-
       </div>
-
     </div>
 
-
-    <!-- BUTTONS -->
     <div class="controls">
-
       <button id="startBtn"
               disabled>
-
         ▶ Start Camera
-
       </button>
-
       <button id="switchBtn"
               disabled>
-
         ⇄ Switch Camera
-
       </button>
-
       <button id="stopBtn"
               disabled>
-
         ■ Stop
-
       </button>
-
     </div>
-
-
-    <!-- LOG -->
     <div id="log">
-
       Waiting for AI models...
-
     </div>
-
-
-    <!-- VOICE HINT -->
     <div class="voice-hint">
-
       Voice commands:
       <b>"start"</b> ·
       <b>"stop"</b> ·
       <b>"switch"</b>
-
     </div>
-
   </main>
 
 
