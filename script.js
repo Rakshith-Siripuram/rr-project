@@ -155,7 +155,7 @@ Promise.all([
     console.error(err);
 });
 
-function enableCam(){
+async function enableCam(){
 
     if(
         !cocoModel ||
@@ -166,53 +166,54 @@ function enableCam(){
         return;
     }
 
-    navigator.mediaDevices
-    .getUserMedia({
-        video: { facingMode }
-    })
+    try{
 
-    .then(s => {
-
-        stream = s;
+        stream =
+            await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false
+            });
 
         video.srcObject = stream;
 
         placeholder.style.display = 'none';
 
-        video.onloadeddata = () => {
+        await video.play();
 
-            isPredicting = true;
+        isPredicting = true;
 
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
 
-            setStatus(
-                'active',
-                'DETECTING'
-            );
-
-            log('Detection started');
-
-            let startVoice =
-                new SpeechSynthesisUtterance(
-                    "Camera started"
-                );
-
-            speechSynthesis.speak(startVoice);
-
-            predictLoop();
-        };
-    })
-
-    .catch(err => {
-
-        log(
-            'Camera error',
-            'warn'
+        setStatus(
+            'active',
+            'DETECTING'
         );
 
-        console.error(err);
-    });
+        log('Camera started');
+
+        speechSynthesis.cancel();
+
+        let startVoice =
+            new SpeechSynthesisUtterance(
+                "Detection started"
+            );
+
+        speechSynthesis.speak(startVoice);
+
+        predictLoop();
+
+    }
+
+    catch(err){
+
+        console.log(err);
+
+        log(
+            'Camera access denied',
+            'warn'
+        );
+    }
 }
 
 async function predictLoop(){
