@@ -1,330 +1,161 @@
-/* ── GENERAL ───────────────────────────────────────── */
 
 body {
-
   margin: 0;
-
   background: #0f172a;
-
   color: white;
-
   font-family: Arial, sans-serif;
 }
-
-
 header {
-
   display: flex;
-
   justify-content: space-between;
-
   align-items: center;
-
   padding: 16px 24px;
-
   background: #111827;
-
   border-bottom: 1px solid #1f2937;
 }
-
-
 .logo {
-
   font-size: 24px;
-
   font-weight: bold;
-
   color: #00ffcc;
 }
-
-
 main {
-
   padding: 20px;
 }
-
-
-/* ── LIVE VIEW ─────────────────────────────────────── */
-
 #liveView {
-
-  position: relative;
-
+ position: relative;
   width: 900px;
-
   max-width: 100%;
-
   margin: auto;
-
   overflow: hidden;
-
   border-radius: 16px;
-
   border: 2px solid #00ffcc;
-
   background: black;
 }
-
-
 #webcam {
-
   width: 100%;
-
   display: block;
 }
-
-
 /* ── PLACEHOLDER ───────────────────────────────────── */
-
 #placeholder {
-
   position: absolute;
-
   inset: 0;
-
   display: flex;
-
   justify-content: center;
-
   align-items: center;
-
   flex-direction: column;
-
   background: rgba(0,0,0,0.7);
-
   font-size: 24px;
-
   color: #ccc;
 }
 
-
-/* ── MOBILENET LABEL ───────────────────────────────── */
-
 #mobileNetLabel {
-
   position: absolute;
-
   bottom: 20px;
-
   left: 50%;
-
   transform: translateX(-50%);
-
   background: rgba(0,0,0,0.75);
-
   color: #00ffcc;
-
   padding: 12px 24px;
-
   border-radius: 12px;
-
   font-size: 30px;
-
   font-weight: bold;
-
   text-transform: uppercase;
-
   letter-spacing: 2px;
-
   border: 2px solid #00ffcc;
-
   box-shadow: 0 0 20px #00ffcc;
-
   z-index: 999;
-
   display: none;
 }
-
-
-/* ── DETECTION BOX ─────────────────────────────────── */
-
 .highlighter {
-
   position: absolute;
-
   border: 3px solid #00ff00;
-
   z-index: 2;
 }
-
-
 .warning-box {
-
   border-color: red;
 }
-
-
-/* ── LABEL ─────────────────────────────────────────── */
-
 .label {
-
   position: absolute;
-
   background: #00ff00;
-
   color: black;
-
   padding: 4px 8px;
-
   font-size: 14px;
-
   font-weight: bold;
-
   border-radius: 4px;
-
   z-index: 3;
 }
-
-
 .warning-label {
-
   background: red;
-
   color: white;
 }
-
-
-/* ── CONTROLS ──────────────────────────────────────── */
-
 .controls {
-
   margin-top: 20px;
-
   display: flex;
-
   justify-content: center;
-
   gap: 16px;
 }
-
-
 button {
-
   padding: 12px 18px;
-
   border: none;
-
   border-radius: 8px;
-
   background: #00ffcc;
-
   color: black;
-
   font-weight: bold;
-
   cursor: pointer;
-
   font-size: 16px;
 }
 
 
 button:disabled {
-
   opacity: 0.5;
-
   cursor: not-allowed;
 }
-
-
-/* ── STATUS ────────────────────────────────────────── */
-
 .status-dot {
-
   display: inline-block;
-
   width: 12px;
-
   height: 12px;
-
   border-radius: 50%;
-
   background: gray;
 }
-
-
 .status-dot.active {
 
   background: lime;
 }
-
-
 .status-dot.loading {
-
   background: orange;
 }
-
-
-/* ── LOG ───────────────────────────────────────────── */
-
 #log {
-
   margin-top: 20px;
-
   padding: 12px;
-
   background: #111827;
-
   border-radius: 8px;
-
   font-size: 16px;
 }
-
-
-/* ── LOADING SCREEN ────────────────────────────────── */
-
 #loadingOverlay {
-
   position: fixed;
-
   inset: 0;
-
   background: #020617;
-
   display: flex;
-
   flex-direction: column;
-
   justify-content: center;
-
   align-items: center;
-
   z-index: 9999;
 }
-
-
 .loader-bar {
-
   width: 300px;
-
   height: 20px;
-
   background: #1e293b;
-
   border-radius: 10px;
-
   overflow: hidden;
-
   margin-top: 20px;
 }
-
-
 .loader-fill {
-
   width: 0%;
-
   height: 100%;
-
   background: #00ffcc;
 }
-
-
-/* ── VOICE HINT ────────────────────────────────────── */
-
 .voice-hint {
-
   margin-top: 20px;
-
   text-align: center;
-
   color: #94a3b8;
 }
