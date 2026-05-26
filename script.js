@@ -524,17 +524,83 @@ function stopCam(){
 
     log('Camera stopped');
 }
+/* VOICE COMMAND SYSTEM */
+const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+if (SpeechRecognition) {
+    const recognition =
+        new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.onstart = function () {
+        console.log("Voice recognition started");
+        log("Voice commands enabled");
+    };
+    recognition.onresult = function (event) {
+        const transcript =
+            event.results[event.results.length - 1][0]
+            .transcript
+            .toLowerCase()
+            .trim();
+        console.log("Heard:", transcript);
+        log("Voice: " + transcript);
+        /* START CAMERA */
+        if (
+            transcript.includes("start camera") ||
+            transcript.includes("start detection") ||
+            transcript.includes("start")
+        ) {
+            if (!isPredicting) {
+               enableCam();
+            }
+        }
+        /* STOP CAMERA */
+        if (
+            transcript.includes("stop camera") ||
+            transcript.includes("stop detection") ||
+            transcript.includes("stop")
+        ) {
+            if (isPredicting) {
+                stopCam();
+            }
+        }
+        /* SWITCH CAMERA */
+        if (
+            transcript.includes("switch camera")
+        ) {
+            switchCamera();
+        }
+    };
 
+    recognition.onerror = function (event) {
+        console.log(
+            "Speech recognition error:",
+            event.error
+        );
+    };
+    recognition.onend = function () {
+        recognition.start();
+    };
+    recognition.start();
+} else {
+    console.log(
+        "Speech Recognition not supported"
+    );
+    log(
+        "Speech recognition not supported",
+        "warn"
+    );
+}
 startBtn.addEventListener(
     'click',
     enableCam
 );
-
 stopBtn.addEventListener(
     'click',
     stopCam
 );
-
 switchBtn.addEventListener(
     'click',
     switchCamera
