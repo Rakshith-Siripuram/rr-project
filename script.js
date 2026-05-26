@@ -60,12 +60,20 @@ function log(msg, type){
         ? `<span class="warn">⚠ ${msg}</span>`
         : `<span>›</span> ${msg}`;
 }
-
 function speak(text){
 
     console.log("Speaking:", text);
 
     speechSynthesis.cancel();
+
+    /* STOP microphone listening */
+
+    if(recognition){
+
+        try{
+            recognition.stop();
+        }catch(e){}
+    }
 
     let speech =
         new SpeechSynthesisUtterance(text);
@@ -74,8 +82,28 @@ function speak(text){
     speech.pitch = 1;
     speech.volume = 1;
 
+    speech.onend = function(){
+
+        /* START microphone again */
+
+        if(recognition){
+
+            try{
+                recognition.start();
+            }catch(e){}
+        }
+    };
+
     speech.onerror = function(e){
+
         console.log("Speech error", e);
+
+        if(recognition){
+
+            try{
+                recognition.start();
+            }catch(err){}
+        }
     };
 
     setTimeout(function(){
@@ -524,70 +552,155 @@ function stopCam(){
 
     log('Camera stopped');
 }
+
 /* VOICE COMMAND SYSTEM */
 const SpeechRecognition =
     window.SpeechRecognition ||
     window.webkitSpeechRecognition;
+
 if (SpeechRecognition) {
-    const recognition =
+
+    recognition =
         new SpeechRecognition();
+
     recognition.continuous = true;
+
     recognition.lang = 'en-US';
+
     recognition.interimResults = false;
+
     recognition.onstart = function () {
-        console.log("Voice recognition started");
-        log("Voice commands enabled");
+
+        console.log(
+            "Voice recognition started"
+        );
+
+        log(
+            "Voice commands enabled"
+        );
     };
+
     recognition.onresult = function (event) {
+
         const transcript =
-            event.results[event.results.length - 1][0]
+            event.results[
+                event.results.length - 1
+            ][0]
             .transcript
             .toLowerCase()
             .trim();
-        console.log("Heard:", transcript);
-        log("Voice: " + transcript);
+
+        console.log(
+            "Heard:",
+            transcript
+        );
+
+        log(
+            "Voice: " + transcript
+        );
+
         /* START CAMERA */
+
         if (
-            transcript.includes("start camera") ||
-            transcript.includes("start detection") ||
-            transcript.includes("start")
+            transcript.includes(
+                "start camera"
+            )
         ) {
+
             if (!isPredicting) {
-               enableCam();
+
+                speak(
+                    "Starting camera"
+                );
+
+                setTimeout(() => {
+
+                    enableCam();
+
+                },500);
             }
         }
+
         /* STOP CAMERA */
+
         if (
-            transcript.includes("stop camera") ||
-            transcript.includes("stop detection") ||
-            transcript.includes("stop")
+            transcript.includes(
+                "stop camera"
+            )
         ) {
+
             if (isPredicting) {
-                stopCam();
+
+                speak(
+                    "Stopping camera"
+                );
+
+                setTimeout(() => {
+
+                    stopCam();
+
+                },500);
             }
         }
+
         /* SWITCH CAMERA */
+
         if (
-            transcript.includes("switch camera")
+            transcript.includes(
+                "switch camera"
+            )
         ) {
-            switchCamera();
+
+            speak(
+                "Switching camera"
+            );
+
+            setTimeout(() => {
+
+                switchCamera();
+
+            },500);
         }
     };
 
     recognition.onerror = function (event) {
+
         console.log(
             "Speech recognition error:",
             event.error
         );
     };
+
     recognition.onend = function () {
-        recognition.start();
+
+        setTimeout(() => {
+
+            if(
+                !speechSynthesis.speaking
+            ){
+
+                try{
+
+                    recognition.start();
+
+                }catch(e){}
+            }
+
+        },1000);
     };
-    recognition.start();
+
+    try{
+
+        recognition.start();
+
+    }catch(e){}
+
 } else {
+
     console.log(
         "Speech Recognition not supported"
     );
+
     log(
         "Speech recognition not supported",
         "warn"
