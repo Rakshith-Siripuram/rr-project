@@ -259,7 +259,7 @@ async function predictLoop() {
             const secondProb = tmSorted.length > 1 ? tmSorted[1].probability : 0;
             const tmMargin = topProb - secondProb;
 
-            if (bestTM.probability > 0.99 && tmMargin > 0.70) {
+            if (bestTM.probability > 0.995 && tmMargin > 0.80) {
                 const tmName = bestTM.className;
                 if (
     tmName.toLowerCase() === "charger" &&
@@ -286,7 +286,7 @@ async function predictLoop() {
 
                 if (
     classifications.length > 0 &&
-    classifications[0].probability > 0.75
+    classifications[0].probability > 0.97
 ) {
                     const best = classifications[0];
 
