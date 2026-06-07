@@ -31,8 +31,9 @@ let animationId = null;
 const children = [];
 
 const DETECTION_INTERVAL = 300;
-const REPEAT_INTERVAL = 3000;
+const REPEAT_INTERVAL = 5000;
 const REQUIRED_STABILITY = 3;
+const COCO_STABILITY = 3;
 
 let recognition = null;
 
@@ -41,6 +42,8 @@ let lastSpokenTime = 0;
 
 let stablePrediction = '';
 let stableCount = 0;
+let cocoStablePrediction = '';
+let cocoStableCount = 0;
 
 let availableVoices = [];
 speechSynthesis.onvoiceschanged = function () {
@@ -62,12 +65,13 @@ function log(msg, type) {
 }
 
 function speak(text) {
+
+    if (isSpeaking) return;
+
     console.log("Speaking:", text);
     speechSynthesis.cancel();
 
-    if (recognition) {
-        try { recognition.stop(); } catch (e) {}
-    }
+    
 
     isSpeaking = true;
 
@@ -77,14 +81,8 @@ function speak(text) {
     speech.volume = 1;
 
     speech.onend = function () {
-        isSpeaking = false;
-
-        setTimeout(function () {
-            if (recognition) {
-                try { recognition.start(); } catch (e) {}
-            }
-        }, 800);
-    };
+    isSpeaking = false;
+};
 
     speech.onerror = function (e) {
         console.log("Speech error", e);
@@ -164,9 +162,7 @@ async function enableCam() {
         log('Camera started');
 
         speechSynthesis.cancel();
-
-        let startVoice = new SpeechSynthesisUtterance("Detection started");
-        speechSynthesis.speak(startVoice);
+log("Detection started");
 
         predictLoop();
 
@@ -196,7 +192,7 @@ async function predictLoop() {
         const scaleY = liveView.offsetHeight / video.videoHeight;
 
         predictions.forEach(pred => {
-            if (pred.score < 0.60) return;
+            if (pred.score < 0.75) return;
 
             const [x, y, w, h] = pred.bbox;
 
@@ -221,18 +217,34 @@ async function predictLoop() {
             seen.push(pred.class);
         });
 
-        if (seen.length > 0) {
-            log('COCO detected: ' + seen.join(', '));
+      if (seen.length > 0) {
 
-            const msg = seen[0];
-            const now = Date.now();
+    log('COCO detected: ' + seen.join(', '));
 
-            if (msg !== lastSpoken || now - lastSpokenTime > REPEAT_INTERVAL) {
-                speak(msg);
-                lastSpoken = msg;
-                lastSpokenTime = now;
-            }
-        } else {
+    const msg = seen[0];
+
+    if (msg === cocoStablePrediction) {
+        cocoStableCount++;
+    } else {
+        cocoStablePrediction = msg;
+        cocoStableCount = 1;
+    }
+
+    if (cocoStableCount >= COCO_STABILITY) {
+
+        const now = Date.now();
+
+        if (
+            msg !== lastSpoken ||
+            now - lastSpokenTime > REPEAT_INTERVAL
+        ) {
+            speak(msg);
+            lastSpoken = msg;
+            lastSpokenTime = now;
+        }
+    }
+}
+         else {
             const tmPredictions = await tmModel.predict(video);
 
             if (!isPredicting) return;
@@ -266,10 +278,23 @@ async function predictLoop() {
 
                 if (!isPredicting) return;
 
-                if (classifications.length > 0) {
+                if (
+    classifications.length > 0 &&
+    classifications[0].probability > 0.75
+) {
                     const best = classifications[0];
 
                     const cleanName = best.className.split(',')[0];
+                    const blockedClasses = [
+    "pen",
+    "pencil",
+    "charger",
+    "remote control"
+];
+
+if (blockedClasses.includes(cleanName.toLowerCase())) {
+    return;
+}
                     const confidence = Math.round(best.probability * 100);
 
                     log('MobileNet: ' + cleanName + ' (' + confidence + '%)');
@@ -359,6 +384,8 @@ function stopCam() {
     lastSpoken = '';
     stablePrediction = '';
     stableCount = 0;
+    cocoStablePrediction = '';
+cocoStableCount = 0;
 
     setStatus('', 'READY');
     log('Camera stopped');
@@ -376,9 +403,8 @@ if (SpeechRecognition) {
     recognition.interimResults = false;
 
     recognition.onstart = function () {
-        console.log("Voice recognition started");
-        log("Voice commands enabled");
-    };
+    console.log("Voice recognition started");
+};
 
     recognition.onresult = function (event) {
         if (isSpeaking) return;
@@ -431,15 +457,15 @@ if (SpeechRecognition) {
         log("Voice error: " + event.error, 'warn');
     };
 
-    recognition.onend = function () {
-        setTimeout(() => {
-            if (!isSpeaking) {
-                try {
-                    recognition.start();
-                } catch (e) {}
-            }
-        }, 800);
-    };
+recognition.onend = function () {
+    setTimeout(() => {
+        if (!isSpeaking) {
+            try {
+                recognition.start();
+            } catch (e) {}
+        }
+    }, 800);
+};
 
     try {
         recognition.start();
