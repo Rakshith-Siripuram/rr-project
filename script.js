@@ -259,8 +259,14 @@ async function predictLoop() {
             const secondProb = tmSorted.length > 1 ? tmSorted[1].probability : 0;
             const tmMargin = topProb - secondProb;
 
-            if (bestTM.probability > 0.92 && tmMargin > 0.30) {
+            if (bestTM.probability > 0.99 && tmMargin > 0.70) {
                 const tmName = bestTM.className;
+                if (
+    tmName.toLowerCase() === "charger" &&
+    bestTM.probability < 0.995
+) {
+    return;
+}
 
                 log('TM Detected: ' + tmName + ' (' + Math.round(topProb * 100) + '%)');
 
